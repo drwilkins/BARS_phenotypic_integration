@@ -4,6 +4,8 @@
 require(igraph);require(PCIT);require(qgraph);require(psych);require(plotrix);require(assortnet)
 require(devtools) #necessary to import files from dropbox over https
 
+*******&&&*DSYHFjbds
+D<-"HELLO"
 
 #Read in my custom function definitions
 source_url("https://dl.dropboxusercontent.com/s/b32xvn9x18gahc6/bioworkflow.R") #bioworkflow.R script
