@@ -7,6 +7,8 @@ require(devtools) #necessary to import files from dropbox over https
 *******&&&*DSYHFjbds
 D<-"HELLO"
 
+Dd<-"hfklahsdklfajsdfjadklsfjlsa
+"
 #Read in my custom function definitions
 source_url("https://dl.dropboxusercontent.com/s/b32xvn9x18gahc6/bioworkflow.R") #bioworkflow.R script
 D<-read.csv("data/8pop.csv")
