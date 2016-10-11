@@ -1,85 +1,70 @@
-#v1.1 add in larger CZ sample from 2013
-#v1.2 add in fruchterman reingold layout, scale nodes by trait Z score
+#git config --global user.email "mrwilkins06@gmail.com"
 
 require(igraph);require(PCIT);require(qgraph);require(psych);require(plotrix);require(assortnet)
 require(devtools) #necessary to import files from dropbox over https
 
-*******&&&*DSYHFjbds
-D<-"HELLO"
-
-Dd<-"hfklahsdklfajsdfjadklsfjlsa
-"
 #Read in my custom function definitions
 source_url("https://dl.dropboxusercontent.com/s/b32xvn9x18gahc6/bioworkflow.R") #bioworkflow.R script
-D<-read.csv("data/8pop.csv")
+D.raw<-read.csv("data/8pop.MF.TCS.csv")
+quotenames(D.raw)
+toi<-c('band','Pop','Year','bandyear','Sex','CI1','mRWL','maxTS','Mass','T_tcs.h.theta','T_tcs.h.phi','T_tcs.r.achieved','T_sum.B2','R_tcs.h.theta','R_tcs.h.phi','R_tcs.r.achieved','R_sum.B2','B_tcs.h.theta','B_tcs.h.phi','B_tcs.r.achieved','B_sum.B2','V_tcs.h.theta','V_tcs.h.phi','V_tcs.r.achieved','V_sum.B2')
+D<-D.raw[,toi]
 head(D)
-names(D)[1]<-"Pop"
 #check that there are no issues with data entry
+#class(D$Year)<-"factor"
 check_class(D)
-NA_outliers(D,id="ID")
-#Get rid of this indiv that has outlier values
-D2<-NA_outliers(D,id="ID")$newdata
-NA_outliers(D2,id="ID") #outliers switched to NA
+NA_outliers(D,c(.01,.99),id="band",ignore="CI1")
+#Get rid of outlier values
+D2<-NA_outliers(D,c(.01,.99),id="band",ignore="CI1")$newdata
+NA_outliers(D2,id="band") #outliers switched to NA
 
+
+#************************************************************************
+###### D2 contains repeated individuals; D3 will just have first capture
 #Remove duplicates
-D2$popID<-paste(D2$Pop,D2$ID)
-sum(duplicated(D2$popID)) #4 duplicates
+D2$popID<-paste(D2$Pop,D2$band)
+sum(duplicated(D2$popID)) #620 duplicates
+#Order D2 by Population, then Year
+D2<-D2[order(D2$Pop,D2$Year),]
+D3<-subset(D2,!duplicated(D2$popID))
+sum(duplicated(D3$popID)) #Removed, now
 
-D2<-subset(D2,!duplicated(D2$popID))
-sum(duplicated(D2$popID)) #Removed, now
-
-
-#Generate trait names so you don't have to type em out
-cat(names(D)[c(7,8,11:22)],sep='","')
-
-#define traits of interest
-toi<-c("mRWL","mRTS","T_AvgBri","T_Hue","T_Chrom","R_AvgBri","R_Hue","R_Chrom","B_AvgBri","B_Hue","B_Chrom","V_AvgBri","V_Hue","V_Chrom")
-toi2<-c("RWL","RTS","TBri","THue","TChr","RBri","RHue","RChr","BBri","BHue","BChr","VBri","VHue","VChr")
+###################################
+#define traits of interest (toi2)
+toi
+(toi2<-toi[-c(1:6,9,11,15,19,23)])#get rid of descriptors & phi measures
 shps<-c("square","square",rep("triangle",12))
 
-#Combine this more limited dataset w/ bigger samples from 4 pop study
-pop4<-read.csv("/Users/mattwilkins/Dropbox/My Research/My Papers/bars phenotypic variation/data/4popdata.csv")
-pop4_culled<-pop4[,c("ID","Sex","Pop","Year","Mass",toi[-2])]
-#Don't have mean tail streamers for Turkey; FOR NOW, treat maxTS as meanTS to merge with 8pop dataset
-pop4_culled$mRTS<-pop4$maxTS
 
-NA_outliers(pop4_culled,id="ID")
-#get rid of couple individuals w/ extreme values (NA them)
-pop4b<-NA_outliers(pop4_culled,id="ID")$newdata
-NA_outliers(pop4b,id="ID") #no outliers now
-
-names(pop4b)
-names(D2)
-names(D2)[5]<-"Year"
-names(pop4b)[which(is.na(match(names(pop4b),names(D2))))]
-D3<-D2[,names(pop4b)]
-
-tapply(D3$ID,D3$Pop,length)#sample sizes for each pop
-tapply(pop4b$ID,pop4b$Pop,length)#much larger samples (esp, since includes males and fems)
-### Get rid of the smaller datasets for the 4 pops in the 8population dataset (D3)
-D4<-subset(D3,Pop!="CR"&Pop!="IL"&Pop!="TR"&Pop!="RM")
-D4$Pop<-droplevels(D4$Pop)
-tapply(D4$ID,D4$Pop,length)#
-df.comb<-rbind(pop4b,D4)
-levels(df.comb$Pop)[1:4]<-c("CR","IL","RM","TR")
-tapply(df.comb$ID,df.comb$Pop,length)#new, better sample sizes
+tapply(D3$band,D3$Pop,length)#sample sizes for each pop
 
 #reorder factor levels west to east
-df.comb$Pop<-factor(df.comb$Pop,levels=c("CO","IA","UK","CR","RM","TR","IL","TW"))
+#D3$Pop<-factor(df.comb$Pop,levels=c("CO","IA","UK","CR","RM","TR","IL","TW"))
 
 #######################################
 ##########################
-##Just use males
+##Sep sexes
 
-machos<-subset(df.comb,Sex=="M")
+machos<-subset(D3,Sex=="M")
+hembras<-subset(D3,Sex=="F")
+########################
+####  Make list w/ each country as a separate dataframe
+# Males
+DlistM<-lapply(levels(machos$Pop),function(x) (subset(machos,Pop==x)))
+(names(DlistM)<-levels(machos$Pop))
+# Females
+DlistF<-lapply(levels(hembras$Pop),function(x) (subset(hembras,Pop==x)))
+(names(DlistF)<-levels(hembras$Pop))
 
-#Make list w/ each country as a separate dataframe
-Dlist<-lapply(levels(machos$Pop),function(x) (subset(machos,Pop==x)))
-(names(Dlist)<-levels(machos$Pop))
+########################
+#### Make list of correlations for each country (for traits of interest)
+# Males
+ClistM<-lapply(levels(machos$Pop), function(x) cor(as.matrix(DlistM[[x]][,toi2]),method="s",use="pairwise.complete"))
+(names(ClistM)<-levels(machos$Pop))
+# Females
+ClistF<-lapply(levels(hembras$Pop), function(x) cor(as.matrix(DlistF[[x]][,toi2]),method="s",use="pairwise.complete"))
+(names(ClistF)<-levels(hembras$Pop))
 
-#Make list of correlations for each country (for traits of interest)
-Clist<-lapply(levels(machos$Pop), function(x) cor(as.matrix(Dlist[[x]][,toi]),method="s",use="pairwise.complete"))
-(names(Clist)<-levels(machos$Pop))
 
 ### Make igraph understand triangle shapes
 mytriangle <- function(coords, v=NULL, params) {
@@ -113,9 +98,9 @@ Q<-function(COR,...){
 return(G)}
 
 #Unfiltered networks!
-png("figs/EvoFig_unfiltered.png")
- qgraph(Clist$CO,labels=F,color=rep("gray40",14),shape=shps,vsize=8,vize2=8,edge.color="white",border.color="black",layout="spring",bg="transparent",diag=F)
- dev.off()
+# png("figs/EvoFig_unfiltered.png")
+#  qgraph(Clist$CO,labels=F,color=rep("gray40",14),shape=shps,vsize=8,vize2=8,edge.color="white",border.color="black",layout="spring",bg="transparent",diag=F)
+#  dev.off()
  
 # gCR<-Q(Clist$CR)
 # gIA<-Q(Clist$IA)
@@ -127,75 +112,119 @@ png("figs/EvoFig_unfiltered.png")
 
 ##### Filter ze networks!!! (PCIT)
 # Get list of PCIT-filtered correlation matrices
-Clist_pcit<-lapply(levels(machos$Pop),function(x) {
-  old<-Clist[[x]] #current dataset is ith element of list
+## Males
+  Clist_pcitM<-lapply(levels(machos$Pop),function(x) {
+  old<-ClistM[[x]] #current dataset is ith element of list
   newdat<-old*0 #initialize 0 matrix w/ same dimensions as old data
   robustnodes<-pcit(old)$idx
   newdat[robustnodes]<-old[robustnodes]#copies only robust nodes over to new dataset (everything else 0)
   return (newdat)})
-names(Clist_pcit)<-levels(machos$Pop)
+names(Clist_pcitM)<-levels(machos$Pop)
 
+## Females
+ Clist_pcitF<-lapply(levels(hembras$Pop),function(x) {
+  old<-ClistF[[x]] #current dataset is ith element of list
+  newdat<-old*0 #initialize 0 matrix w/ same dimensions as old data
+  robustnodes<-pcit(old)$idx
+  newdat[robustnodes]<-old[robustnodes]#copies only robust nodes over to new dataset (everything else 0)
+  return (newdat)})
+names(Clist_pcitF)<-levels(hembras$Pop)
+
+#Plot M nets
 par(mfrow=c(2,4))
-for (i in 1: length(Clist_pcit)){
-  Q(Clist_pcit[[i]],title=names(Clist_pcit)[i])
+for (i in 1: length(Clist_pcitM)){
+  Q(Clist_pcitM[[i]],title=names(Clist_pcitM)[i])
 }
 
+#Plot F nets
+par(mfrow=c(2,4))
+for (i in 1: length(Clist_pcitF)){
+  Q(Clist_pcitF[[i]],title=names(Clist_pcitF)[i])
+}
+
+### **** Some problems with the PCA for small populations (n approaches k vars to extract)
 ###Get PCA scores for all dataframes (Dlist)
 # Count # factors w/ eigenvalues >=1
-extract<-vector(l=8)
-for( i in 1:8){
-pca<-principal(Dlist[[i]][,toi],rot="none",nfactors=14)
-print(names(Dlist)[i])
-extract[i]<-sum(pca$values>=1)
-print(pca)}
-extract#number of factors to extract for each population
+extractM<-vector(l=length(levels(D3$Pop)))
+extractF<-vector(l=length(levels(D3$Pop)))
+for( i in 1:length(levels(D3$Pop))){
+pcaM<-principal(DlistM[[i]][,toi2],rot="none",nfactors=length(toi2)-2)#Won't work for full set, calc 2 fewer eigenvectors
+pcaF<-principal(DlistF[[i]][,toi2],rot="none",nfactors=length(toi2)-2)
+print(names(DlistM)[i])
+print(names(DlistF)[i])
+extractM[i]<-sum(pcaM$values>=1)
+extractF[i]<-sum(pcaF$values>=1)
+print(pcaM)
+print(pcaF)}
+extractM
+extractF#number of factors to extract for each population
 
 # Extract PCA objects for all pops, 5PCs, varimax rotation
 # Although pops had 4-6 eigenvalues greater than 1; but did 5, as compromise
-pcaList<-lapply(1:8,function(x) principal(Dlist[[x]][,toi],rot="varimax",nfactors=extract[x]))
-names(pcaList)<-names(Dlist)
+pcaListM<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistM[[x]][,toi2],rot="varimax",nfactors=extractM[x]))
+names(pcaListM)<-names(DlistM)
+pcaListF<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistF[[x]][,toi2],rot="varimax",nfactors=extractF[x]))
+names(pcaListF)<-names(DlistF)
 
 ####
 # Which correlations are in all networks? And what is the average value?
+#MALES
+Clist_pcitM_bin<-lapply(1:length(levels(D3$Pop)),function(x) apply(Clist_pcitM[[x]],1, function(xx) ifelse(xx==0,0,1)))#binary correlation matrices (as list)
+names(Clist_pcitM_bin)<-names(Clist_pcitM)
 
-Clist_pcit_bin<-lapply(1:8,function(x) apply(Clist_pcit[[x]],1, function(xx) ifelse(xx==0,0,1)))#binary correlation matrices (as list)
-names(Clist_pcit_bin)<-names(Clist_pcit2)
-# bin8<-lapply(Clist_pcit_bin,function(x) apply(x,c(1,2),sum))
-# bin8
-(commonedges<-teval(paste0("Clist_pcit_bin[[",1:8,"]]",collapse="+"))) #Adds all population binary edges together
-diag(commonedges)<-NA
-colscale<-seq(1,8,1) #color scale goes from 1 to 8; 8 if edge present in all pops (gray); 1 if only present once (black)
+#FEMALES
+Clist_pcitF_bin<-lapply(1:length(levels(D3$Pop)),function(x) apply(Clist_pcitF[[x]],1, function(xx) ifelse(xx==0,0,1)))#binary correlation matrices (as list)
+names(Clist_pcitF_bin)<-names(Clist_pcitF)
 
-#Which and how many edges don't exist?
-idx<-which(lower.tri(commonedges)&commonedges==0,arr.ind=T)
-paste(rownames(commonedges)[idx[,"row"]],colnames(commonedges)[idx[,"col"]],sep="--") #12/182=6.6% not present in any pop
+(commonedgesM<-teval(paste0("Clist_pcitM_bin[[",1:length(levels(D3$Pop)),"]]",collapse="+"))) #Adds all population binary edges together
+(commonedgesF<-teval(paste0("Clist_pcitF_bin[[",1:length(levels(D3$Pop)),"]]",collapse="+"))) #Adds all population binary edges together
+
+diag(commonedgesM)<-NA
+colscaleM<-seq(1,length(levels(D3$Pop)),1) #color scale goes from 1 to 8; 8 if edge present in all pops (gray); 1 if only present once (black)
+diag(commonedgesF)<-NA
+colscaleF<-seq(1,length(levels(D3$Pop)),1) 
+
+#####
+## Which and how many edges don't exist?
+#For MALES
+idxM<-which(lower.tri(commonedgesM)&commonedgesM==0,arr.ind=T)
+paste(rownames(commonedgesM)[idxM[,"row"]],colnames(commonedgesM)[idxM[,"col"]],sep="--") 
+nrow(idxM)/length(which(upper.tri(Clist_pcitM[[1]])))
+#16/91=17.6% not present in any pop
+
+#For FEMALES
+idxF<-which(lower.tri(commonedgesF)&commonedgesF==0,arr.ind=T)
+paste(rownames(commonedgesF)[idxF[,"row"]],colnames(commonedgesF)[idxF[,"col"]],sep="--") 
+nrow(idxF)/length(which(upper.tri(Clist_pcitF[[1]])))
+#9/91=9.9% not present in any pop
+
 
 #How many edges in all networks?
 idx2<-which(lower.tri(commonedges)&commonedges==8,arr.ind=T)
 paste(rownames(commonedges)[idx2[,"row"]],colnames(commonedges)[idx2[,"col"]],sep="--") 
 #6/182=3.3% are present in all pops
 
-
-col.indices<-apply(commonedges,1:2,function(x){max(which(x>=colscale))})
-j<-col.indices[upper.tri(col.indices)]
-k<-j[-which(is.infinite(j) )] #get rid of zero/undefined edges
-
-pal<-colorRampPalette(c("black","gray90")) #palette ranging from (black, unique to 1 pop, to gray, in all pops)
-blacks<-pal(8)
-COLS<-blacks[k]
-#COLS<-COLS[which(!is.na(COLS))]
-
-meanNet<-apply(simplify2array(Clist_pcit), 1:2, mean)
-diag(meanNet)<-NA
-length(Q(meanNet)$Edgelist[[1]])#79 edges
-
-#test of colors
-plot(1:length(COLS),abs(as.vector(commonedges[which(upper.tri(commonedges)&commonedges!=0)])),col=COLS,pch=19,cex=3,xlab="edge index",ylab="# times in a network")
-
-#This is the average 
-dev.off()
-Q(meanNet,edge.color=COLS,title="Mean Phenotype Network",posCol=1,labels=toi2,shape=shps,vsize=8,vsize2=8)
-#Gray edges are super common; pure black edges are unique in 1 pop
+# 
+# col.indices<-apply(commonedges,1:2,function(x){max(which(x>=colscale))})
+# j<-col.indices[upper.tri(col.indices)]
+# k<-j[-which(is.infinite(j) )] #get rid of zero/undefined edges
+# 
+# pal<-colorRampPalette(c("black","gray90")) #palette ranging from (black, unique to 1 pop, to gray, in all pops)
+# blacks<-pal(8)
+# COLS<-blacks[k]
+# #COLS<-COLS[which(!is.na(COLS))]
+# 
+# meanNet<-apply(simplify2array(Clist_pcit), 1:2, mean)
+# diag(meanNet)<-NA
+# length(Q(meanNet)$Edgelist[[1]])#79 edges
+# 
+# #test of colors
+# plot(1:length(COLS),abs(as.vector(commonedges[which(upper.tri(commonedges)&commonedges!=0)])),col=COLS,pch=19,cex=3,xlab="edge index",ylab="# times in a network")
+# 
+# #This is the average
+# dev.off()
+# Q(meanNet,edge.color=COLS,title="Mean Phenotype Network",posCol=1,labels=toi2,shape=shps,vsize=8,vsize2=8)
+# #Gray edges are super common; pure black edges are unique in 1 pop
 
 #----------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------------
@@ -277,19 +306,19 @@ dev.off()
 
 #######
 #-------------------------
-# Plot for presentations
-pdf("figs/Evo presentation_8pop-pcit.pdf",width=16,height=8)
-#define vertex size
-vertsize<-8#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
-par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
-popnames<-c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
-for (i in 1: 8){
-  mat<-Clist_pcit[[i]]
-  Q(mat,color="white",border.color="gray20",labels=toi3,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="white",bg="transparent",label.color="white")
-  mtext(paste0("n=",sum(!is.na(pcaList[[i]]$scores[,1]))),side=1,line=-.75,at=1.1,cex=.9,font=1,col="white")
-  mtext(popnames[i],3,line=-.6,at=-.8,,adj=.5,col="white")
-}
-dev.off()
+# # Plot for presentations
+# pdf("figs/Evo presentation_8pop-pcit.pdf",width=16,height=8)
+# #define vertex size
+# vertsize<-8#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
+# par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
+# popnames<-c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
+# for (i in 1: 8){
+#   mat<-Clist_pcit[[i]]
+#   Q(mat,color="white",border.color="gray20",labels=toi3,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="white",bg="transparent",label.color="white")
+#   mtext(paste0("n=",sum(!is.na(pcaList[[i]]$scores[,1]))),side=1,line=-.75,at=1.1,cex=.9,font=1,col="white")
+#   mtext(popnames[i],3,line=-.6,at=-.8,,adj=.5,col="white")
+# }
+# dev.off()
 
 
 #####---------------------
