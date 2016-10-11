@@ -2,6 +2,39 @@
 
 require(igraph);require(PCIT);require(qgraph);require(psych);require(plotrix);require(assortnet)
 require(devtools) #necessary to import files from dropbox over https
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }} #end multiplot definition
 
 #Read in my custom function definitions
 source_url("https://dl.dropboxusercontent.com/s/b32xvn9x18gahc6/bioworkflow.R") #bioworkflow.R script
@@ -148,8 +181,8 @@ for (i in 1: length(Clist_pcitF)){
 extractM<-vector(l=length(levels(D3$Pop)))
 extractF<-vector(l=length(levels(D3$Pop)))
 for( i in 1:length(levels(D3$Pop))){
-pcaM<-principal(DlistM[[i]][,toi2],rot="none",nfactors=length(toi2)-2)#Won't work for full set, calc 2 fewer eigenvectors
-pcaF<-principal(DlistF[[i]][,toi2],rot="none",nfactors=length(toi2)-2)
+pcaM<-principal(DlistM[[i]][,toi2],rot="none",nfactors=length(toi2))#Won't work for full set, calc 2 fewer eigenvectors
+pcaF<-principal(DlistF[[i]][,toi2],rot="none",nfactors=length(toi2)-2)#WONT work, bc too few observations
 print(names(DlistM)[i])
 print(names(DlistF)[i])
 extractM[i]<-sum(pcaM$values>=1)
@@ -163,7 +196,7 @@ extractF#number of factors to extract for each population
 # Although pops had 4-6 eigenvalues greater than 1; but did 5, as compromise
 pcaListM<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistM[[x]][,toi2],rot="varimax",nfactors=extractM[x]))
 names(pcaListM)<-names(DlistM)
-pcaListF<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistF[[x]][,toi2],rot="varimax",nfactors=extractF[x]))
+pcaListF<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistF[[x]][,toi2],rot="varimax",nfactors=5))
 names(pcaListF)<-names(DlistF)
 
 ####
@@ -231,251 +264,245 @@ paste(rownames(commonedges)[idx2[,"row"]],colnames(commonedges)[idx2[,"col"]],se
 ################################
 ###### Get Z scores for traits
 ##
-rawmeans<-aggregate(.~Pop,data=machos[,c("Pop",toi)],mean)
+#MALES
+rawmeansM<-aggregate(.~Pop,data=machos[,c("Pop",toi2)],mean)
+#FEMALES
+rawmeansF<-aggregate(.~Pop,data=hembras[,c("Pop",toi2)],mean)
 
 # machos_sd_units<-apply(machos[,toi],2,function(x) (x/sd(x,na.rm=T)))#Put traits in sd units; not sure if necessary
-# convert to 0-1 scale
-Z_0to1<-cbind(machos[,c("ID","Sex","Pop","Year")],apply(machos[,toi],2,function(x) ((x-min(x,na.rm=T))/diff(range(x,na.rm=T)))))#scales traits of interest across all pops
-#This CENTERS, and SCALES means
-Z<-cbind(machos[,c("ID","Sex","Pop","Year")],apply(machos[,toi],2,function(x) scale(x,center=T,scale=T)))
+
+#####
+## convert to 0-1 scale
+#MALES
+Z_0to1M<-cbind(machos[,c("band","Sex","Pop","Year")],apply(machos[,toi2],2,function(x) ((x-min(x,na.rm=T))/diff(range(x,na.rm=T)))))#scales traits of interest across all pops
+
+#FEMALES
+Z_0to1F<-cbind(hembras[,c("band","Sex","Pop","Year")],apply(hembras[,toi2],2,function(x) ((x-min(x,na.rm=T))/diff(range(x,na.rm=T)))))#scales traits of interest across all pops
+
+# #This CENTERS, and SCALES means
+ZM<-cbind(machos[,c("band","Sex","Pop","Year")],apply(machos[,toi2],2,function(x) scale(x,center=T,scale=T)))
+ZF<-cbind(hembras[,c("band","Sex","Pop","Year")],apply(hembras[,toi2],2,function(x) scale(x,center=T,scale=T)))
 
 #MEANS by Country
-(Zmeans_0to1<-aggregate(.~Pop,data=Z_0to1[,c("Pop",toi)],mean)) #Z-scaled means for each trait in each pop
-Zmeans_0to1_revbri<-Zmeans_0to1
-Zmeans_0to1_revbri[,c(4,7,10,13)]<-apply(Zmeans_0to1_revbri[,c(4,7,10,13)],2,function(x) (1-x))
-
-#calculate coefficients of variation (sd/mean)
-CV<-aggregate(.~Pop,data=Z_0to1[,c("Pop",toi)],function(x) (sd(x,na.rm=T)/mean(x,na.rm=T)))
-SD<-aggregate(.~Pop,data=Z_0to1[,c("Pop",toi)],function(x) (sd(x,na.rm=T)))
+#Z-scaled means for each trait in each pop
+#MALES
+(Zmeans_0to1M<-aggregate(.~Pop,data=Z_0to1M[,c("Pop",toi2)],mean)) 
+#FEMALEs
+(Zmeans_0to1F<-aggregate(.~Pop,data=Z_0to1F[,c("Pop",toi2)],mean)) 
 
 
+# Zmeans_0to1_revbri<-Zmeans_0to1
+# Zmeans_0to1_revbri[,c(4,7,10,13)]<-apply(Zmeans_0to1_revbri[,c(4,7,10,13)],2,function(x) (1-x))
+
+#calculate coefficients of variation (sd/mean) & SD
+CVM<-aggregate(.~Pop,data=Z_0to1M[,c("Pop",toi2)],function(x) (sd(x,na.rm=T)/mean(x,na.rm=T)))
+SDM<-aggregate(.~Pop,data=Z_0to1M[,c("Pop",toi2)],function(x) (sd(x,na.rm=T)))
+CVF<-aggregate(.~Pop,data=Z_0to1F[,c("Pop",toi2)],function(x) (sd(x,na.rm=T)/mean(x,na.rm=T)))
+SDF<-aggregate(.~Pop,data=Z_0to1F[,c("Pop",toi2)],function(x) (sd(x,na.rm=T)))
+
+#####################################
 #Plot Z-trait boxplots (* Note Z_0to1 are not normal Z-scales, they're bounded 0:1)
-require(reshape)
-Zmelt<-melt(Z_0to1,id=c("ID","Sex","Pop","Year"))
-ggplot(Zmelt,aes(x=Pop,y=value))+geom_boxplot()+facet_wrap(~variable,nrow=2)+theme_bw()
-ggsave("figs/Trait boxplots_BARS.jpeg",width=12)
+require(reshape2)
+ZmeltM<-melt(Z_0to1M,id=c("band","Sex","Pop","Year"))
+ZmeltF<-melt(Z_0to1F,id=c("band","Sex","Pop","Year"))
+
+ggplot(ZmeltM,aes(x=Pop,y=value))+geom_boxplot()+facet_wrap(~variable,nrow=2)+theme_bw()
+ggsave("figs/Trait boxplots_BARS_males.jpeg",width=12)
+ggplot(ZmeltF,aes(x=Pop,y=value))+geom_boxplot()+facet_wrap(~variable,nrow=2)+theme_bw()
+ggsave("figs/Trait boxplots_BARS_females.jpeg",width=12)
+
 
 #Make figure for Presentations
 #Make custom theme for black background presentation in PPT
-PPTtheme<-theme(panel.background = element_rect(fill = "transparent", colour = "transparent"),
-    plot.background = element_rect(fill = "black",colour = "transparent"),
-    panel.grid.minor = element_blank(), 
-    panel.grid.major = element_blank(),#element_line(colour="white", size = 0.25),
-    axis.line=element_line(size=.25,colour="white"),
-    axis.text=element_text(size=14, colour="white"),
-    axis.text.x = element_text(angle = 90, hjust = 1),
-    axis.title=element_text(size=18,face="bold",colour="white"),
-        strip.background = element_rect(fill = "transparent", color = "white", size = 1),
-    strip.text=element_text(colour="white",size=14))
-
-ggplot(Zmelt,aes(x=Pop,y=value))+geom_boxplot(col="white")+facet_wrap(~variable,nrow=2)+PPTtheme+xlab("\nPopulation")+ylab("Scaled Trait Value\n")+theme(axis.title.y=element_text(vjust=.5))
-ggsave("figs/Evo Presentation_Trait boxplots_BARS.png",width=12)
+# PPTtheme<-theme(panel.background = element_rect(fill = "transparent", colour = "transparent"),
+#     plot.background = element_rect(fill = "black",colour = "transparent"),
+#     panel.grid.minor = element_blank(), 
+#     panel.grid.major = element_blank(),#element_line(colour="white", size = 0.25),
+#     axis.line=element_line(size=.25,colour="white"),
+#     axis.text=element_text(size=14, colour="white"),
+#     axis.text.x = element_text(angle = 90, hjust = 1),
+#     axis.title=element_text(size=18,face="bold",colour="white"),
+#         strip.background = element_rect(fill = "transparent", color = "white", size = 1),
+#     strip.text=element_text(colour="white",size=14))
 
 #Test differences
 for ( i in 1:14){
-  trait<-toi[i]
+  trait<-toi2[i]
   print(trait)
-  print(teval(paste0("summary(aov(",trait,"~Pop,data=Z))")))
+  print(teval(paste0("summary(aov(",trait,"~Pop,data=ZF))")))
   
 } #All sig. different
 
 
 #new labls, changing Bri to Dk, bc of reversed order
-toi3<-c("RWL","RTS","TDk","THue","TChr","RDk","RHue","RChr","BDk","BHue","BChr","VDk","VHue","VChr")
+toi2
+toi3<-c("WL","TS","Tthet","TRach","TBri","Rthet","RRach","RBri","Bthet","BRach","BBri","Vthet","VRach","VBri")
 
-###########################################
-#-------------------------------------------------------
-#now plot the networks w/o arcs, relative to Colorado
-pdf("figs/8pop-pcit filtered_gray_f-r.pdf",width=16,height=8)
+
+#######
+#-------------------------
+# Plot Networks!!!
+#MALES
+pdf("figs/Evo presentation_8pop-pcit_males.pdf",width=16,height=8)
 #define vertex size
-vertsize<-apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
+vertsize<-12#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
 par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
+popnames<-sapply(levels(D3$Pop),function(x) substr(x,1,2))#c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
+for (i in 1: length(levels(D3$Pop))){
+  mat<-Clist_pcitM[[i]]
+  Q(mat,color="skyblue",border.color="gray20",labels=toi3,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="black",bg="transparent",label.color="black")
+  mtext(popnames[i],3,line=.5,at=-1.,,adj=.5,col="black")
+  mtext(paste0("n=",sum(!is.na(pcaListM[[i]]$scores[,1]))),side=3,line=-1.4,at=-1.,cex=.9,adj=.5,font=1,col="black")
+}
+dev.off()
+
+#FEMALES
+pdf("figs/Evo presentation_8pop-pcit_females.pdf",width=16,height=8)
+#define vertex size
+vertsize<-12#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
+par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
+popnames<-sapply(levels(D3$Pop),function(x) substr(x,1,2))#c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
+for (i in 1: length(levels(D3$Pop))){
+  mat<-Clist_pcitF[[i]]
+  Q(mat,color="salmon",border.color="gray20",labels=toi3,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="black",bg="transparent",label.color="black")
+  mtext(popnames[i],3,line=.5,at=-1.,,adj=.5,col="black")
+  mtext(paste0("n=",sum(!is.na(DlistF[[i]]$T_sum.B2)&!is.na(DlistF[[i]]$maxTS))),side=3,line=-1.4,at=-1.,cex=.9,adj=.5,font=1,col="black")
+
+}
+dev.off()
+
+# Same plot, w throat and breast colored differently
+pdf("figs/Evo presentation_8pop-pcit_R&T colored diff.pdf",width=16,height=8)
+#define vertex size
+vertsize<-12
+par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
+nodecols<-c("white","white",rep("orangered",3),rep("orange",9))
+popnames<-c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
 for (i in 1: 8){
   mat<-Clist_pcit[[i]]
-  j2<-col.indices*(apply(mat,1:2,function(x) ifelse(x==0,0,1))) #multiply col.index matrix by matrix at hand (to remove zero edges)
-  j2<-j2[upper.tri(j2)] #get rid of bottom half
-k2<-j2[-which(is.infinite(j) )] #get rid of zero/undefined edges
-pal<-colorRampPalette(c("black","gray90")) #palette ranging from (black, unique to 1 pop, to gray, in all pops)
-blacks<-pal(8)
-icol<-blacks[k2]
-
-    Q(mat,title=names(Clist_pcit)[i],posCol=1,labels=toi3,shape=shps,vsize=vertsize[i,],vsize2=vertsize[i,],edge.color=icol)
-  mtext(paste0("n=",sum(!is.na(pcaList[[i]]$scores[,1]))),side=1,line=-.75,at=1.1,cex=.9,font=1)
+  Q(mat,color=nodecols,border.color="gray20",labels=toi2,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="white",bg="transparent",label.color="white")
+  mtext(paste0("n=",sum(!is.na(pcaList[[i]]$scores[,1]))),side=1,line=-.75,at=1.1,cex=.9,font=1,col="white")
+  mtext(popnames[i],3,line=-.6,at=-.8,,adj=.5,col="white")
 }
 dev.off()
 
 #######
-#-------------------------
-# # Plot for presentations
-# pdf("figs/Evo presentation_8pop-pcit.pdf",width=16,height=8)
-# #define vertex size
-# vertsize<-8#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
-# par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
-# popnames<-c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
-# for (i in 1: 8){
-#   mat<-Clist_pcit[[i]]
-#   Q(mat,color="white",border.color="gray20",labels=toi3,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="white",bg="transparent",label.color="white")
-#   mtext(paste0("n=",sum(!is.na(pcaList[[i]]$scores[,1]))),side=1,line=-.75,at=1.1,cex=.9,font=1,col="white")
-#   mtext(popnames[i],3,line=-.6,at=-.8,,adj=.5,col="white")
-# }
-# dev.off()
+###
+# Calculate Body color Integration Index
+bodytraits<-toi2[-c(1:5)]
+#MALES
+bodyM<-lapply(ClistM,function(x) {tmp<-x[bodytraits,bodytraits] #Get corr matrix for body traits; set diag to NA
+  diag(tmp)<-NA
+  return(tmp)})
+nonbodyM<-lapply(ClistM,function(x) {x[bodytraits,bodytraits]<-0 #Get corr matrix for body traits; set diag to NA
+  diag(x)<-NA
+  return(x)})
+#FEMALES
+bodyF<-lapply(ClistF,function(x) {tmp<-x[bodytraits,bodytraits] #Get corr matrix for body traits; set diag to NA
+  diag(tmp)<-NA
+  return(tmp)})
+nonbodyF<-lapply(ClistF,function(x) {x[bodytraits,bodytraits]<-0 #Get corr matrix for body traits; set diag to NA
+  diag(x)<-NA
+  return(x)})
+
+## MALES
+#Calculate |density| of whole network for each population
+pop.netdensityM<-sapply(ClistM,function(x) sum(abs(x),na.rm=T)/2/91)
+#Calculate |density| of this cluster for each
+pop.clusterdensityM<-sapply(bodyM,function(x) (sum(abs(x),na.rm=T)/2)/36)
+#Calculate similar index, but for noncluster
+pop.nonclusterdensityM<-sapply(nonbodyM,function(x) (sum(abs(x),na.rm=T)/2)/55)
+#Calculate ratio of cluster to network density (integration index)
+IIM<-pop.clusterdensityM/pop.netdensityM
+
+## FEMALES
+#Calculate |density| of whole network for each population
+pop.netdensityF<-sapply(ClistF,function(x) sum(abs(x),na.rm=T)/2/91)
+#Calculate |density| of this cluster for each
+pop.clusterdensityF<-sapply(bodyF,function(x) (sum(abs(x),na.rm=T)/2)/36)
+#Calculate similar index, but for noncluster
+pop.nonclusterdensityF<-sapply(nonbodyF,function(x) (sum(abs(x),na.rm=T)/2)/55)
+#Calculate ratio of cluster to network density (integration index)
+IIF<-pop.clusterdensityF/pop.netdensityF
+
+### Calculate overall body brightness index
+#MALES
+meanbriM<-sapply(DlistM,function(x) {df<-x[,c("R_sum.B2","B_sum.B2","V_sum.B2")]
+            return(mean(colMeans(df,na.rm=T)))  })
+IIdfM<-data.frame(IIM,pop.netdensityM,pop.clusterdensityM,pop.nonclusterdensityM,meanbriM,Pop=names(IIM))
+#FEMALES
+meanbriF<-sapply(DlistF,function(x) {df<-x[,c("R_sum.B2","B_sum.B2","V_sum.B2")]
+            return(mean(colMeans(df,na.rm=T)))  })
+IIdfF<-data.frame(IIF,pop.netdensityF,pop.clusterdensityF,pop.nonclusterdensityF,meanbriF,Pop=names(IIF))
+
+jitterx<-meanbriM+.009
+jitterx[5]<-jitterx[5]+.0012
+jitterx[3]<-jitterx[3]-.02
+jittery<-pop.clusterdensityM+.03
+jittery[6]<-jittery[6]-.05
+
+#MALES
+g1<-ggplot(data=IIdfM,aes(x=meanbriM,y=pop.clusterdensityM,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterx,y=jittery)+xlab("")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Males")#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
+cor.test(meanbriM,pop.clusterdensityM,method="s")
+ggsave("figs/Color Integ Index~Body Bri_males.jpg")
+
+jitterxF<-meanbriF+.009
+jitterxF[5]<-jitterxF[5]+.0012
+jitterxF[3]<-jitterxF[3]-.02
+jitteryF<-pop.clusterdensityF+.03
+jitteryF[6]<-jitteryF[6]-.05
+#FEMALES
+g2<-ggplot(data=IIdfF,aes(x=meanbriF,y=pop.clusterdensityF,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterxF,y=jitteryF)+xlab("Body Brightness Index")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Females")#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
+cor.test(meanbriM,pop.clusterdensityM,method="s")
+ggsave("figs/Color Integ Index~Body Bri_females.jpg")
+
+require(grid)
+jpeg("figs/Color Integ Index~Body Bri_both.jpg")
+multiplot(g1,g2)
+dev.off()
 
 
-#####---------------------
-## Test assortativity by size
-assortbyZ<-list(0)
-for(i in 1:length(Clist_pcit)) {
-  mat<-Clist_pcit[[i]]
-  diag(mat)<-0
-  assortbyZ[[i]]<-assortment.continuous(abs(mat),Zmeans_0to1_revbri[i,-1],weighted=T)
+
+# ggplot(IIdf,aes(x=meansumbri,y=pop.nonclusterdensity,label=Pop))+geom_point(size=2,aes(col=meansumbri))+geom_text(size=5,col="white",aes(x=jitter(meansumbri,10),y=pop.nonclusterdensity+.03))+xlab("Body Brightness Index")+ylab("Integration Index")+stat_ellipse(col="white")+PPTtheme+ylim(c(0,.7))+scale_colour_gradient(limits=c(70, 120), high="#FFFFCC", low="#CC6600",guide=F)+annotate("text",x=130,y=.05,label="rho= 0.429, p= 0.299",col="white",size=5) 
+# cor.test(meansumbri,pop.nonclusterdensity,method="s")
+# ggsave("figs/Evolution Presentation_Color Integ Index~NonBody Brightness.jpg")
+
+
+#############
+##### Plot networks ordered by modularity
+#reorder factor levels west to east
+df.comb$Pop2<-factor(df.comb$Pop)
+levels(df.comb$Pop2)=rank(pop.clusterdensity)
+df.comb$Pop2<-factor(df.comb$Pop2,levels=8:1)
+
+
+
+pdf("figs/Evo presentation_8pop-pcit_ordered by clustering.pdf",width=16,height=8)
+#define vertex size
+NewOrder<-match(1:8,rank(pop.clusterdensity))#order of pops by modularity
+
+#vertsize<-12
+par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
+nodecols<-c("white","white",rep("white",3),rep("orange",9))
+popnames<-c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
+#Change Brightness to Darkness so node scaling is in consistent direction
+Zmeans.dk<-Zmeans_0to1
+Zmeans.dk[,c(4,7,10,13)]<-apply(Zmeans.dk[,c(4,7,10,13)],2,function(x) {1-x})
+#new labls, changing Bri to Dk, bc of reversed order
+toi3<-c("RWL","RTS","TDk","THue","TChr","RDk","RHue","RChr","BDk","BHue","BChr","VDk","VHue","VChr")
+
+for (i in 1: 8){
+  mat<-Clist_pcit[[NewOrder[i] ]]
+  scalar<-as.numeric(10*Zmeans.dk[NewOrder[i],-1])
+  Q(mat,color=nodecols,border.color="gray20",labels=toi3,shape=shps,
+    vsize=scalar+2+scalar^.8,
+    edge.color="white",bg="transparent",label.color="white")
+  
+  mtext(popnames[NewOrder[i]],3,line=-.6,at=-.8,,adj=.5,col="white")
 }
-assortbyZvec<-unlist(assortbyZ)
-names(assortbyZvec)<-names(Clist_pcit)
-assortbyZvec
-assortment.continuous(mat,rnorm(20,1,1),weighted=T)
-#--------------------------------------------
-##  Make networks using igraph to calculate stats and whatnot
+dev.off()
 
-iCO<-graph_from_adjacency_matrix(abs(Clist_pcit$CO),"undirected",weighted=T,diag=F)
-plot(iCO,vertex.size=40,layout=layout.circle,vertex.shape=shps)
-iIA<-graph_from_adjacency_matrix(abs(Clist_pcit$IA),"undirected",weighted=T,diag=F)
-iUK<-graph_from_adjacency_matrix(abs(Clist_pcit$UK),"undirected",weighted=T,diag=F)
-iCR<-graph_from_adjacency_matrix(abs(Clist_pcit$CR),"undirected",weighted=T,diag=F)
-iRM<-graph_from_adjacency_matrix(abs(Clist_pcit$RM),"undirected",weighted=T,diag=F)
-iTR<-graph_from_adjacency_matrix(abs(Clist_pcit$TR),"undirected",weighted=T,diag=F)
-iIL<-graph_from_adjacency_matrix(abs(Clist_pcit$IL),"undirected",weighted=T,diag=F)
-iTW<-graph_from_adjacency_matrix(abs(Clist_pcit$TW),"undirected",weighted=T,diag=F)
-
-items<-c("iCO","iIA","iUK","iCR","iRM","iTR","iIL","iTW") #vector of adjacency matrix names to iterate thru
-
-
-#****************************************************************************
-#****************************************************************************
-####  Test relationship bw population pairwise diff in degree vs diff in mean Z-score
-####   ...we predict a positive relationship between amount of divergence in means & divergence in corr structure
-
-  # Extract degrees for each node for each population
-degrees<-lapply(items,function(x) degree(teval(x)))
-(degrees<-do.call(rbind,degrees))
-viz(degrees[2:15])
-deg.diff<-data.frame(Dyads=Z.meandiff$Dyads,apply(degrees,2,function(trait) apply(comparison,2,function(dyad) trait[dyad][1]-trait[dyad][2] )))
-deg.diff
-
-
-
-###########
-## OK, now get clustering coeff diffs
-  # Extract transitivity for each node for each population
-trans<-lapply(items,function(x) transitivity(teval(x),"localundirected",isolates="zero"))
-(trans<-do.call(rbind,trans))
-viz
-colnames(trans)<-names(V(teval(items[1])))
-
-
-#output Z & degree diffs
-degrees<-as.data.frame(degrees)
-degrees$var<-"deg"
-degrees$Pop<-Zmeans_0to1$Pop
-degrees<-degrees[,c(16,1:15)]
-#Z.meandiff$var<-"traitmean"
-Zmeans_0to1$var<-"traitmean"
-trans<-as.data.frame(trans)
-trans$var<-"transitivity"
-trans$Pop<-Zmeans_0to1$Pop
-trans<-trans[,c(16,1:15)]
-rawmeans$var<-"rawmean"
-CV$var<-"CV"
-SD$var<-"SD"
-
-######### Just plot Degree & Transitivity as f(Z trait Mean)
-require(reshape2)
-df2<-rbind(Zmeans_0to1,degrees,trans,CV,SD,rawmeans)
-write.csv(df2,"data/Trait means, C, & degree.csv")
-df_melt<-melt(df2)
-#dcast(melt(df2),Pop+var+variable~value,id.var=c("var","Pop","variable"))
-
-## Graph Degree ~ Trait means for all traits
-tmp<-subset(df_melt,var=="traitmean"|var=="deg")
-df_deg<-dcast(tmp,variable+Pop~var)
-degxZcor<-t(sapply(levels(df_deg$variable),function(x) {foo<-subset(df_deg,variable==x)
-  results<-cor.test(foo$deg,foo$traitmean,method="s")
-  return(c(results$estimate,results$p.value))})) #get correlation bw degree & trait mean for each trait
-colnames(degxZcor)<-c("rho","p.val")
-degxZcor<-data.frame(degxZcor,p.adj=p.adjust(degxZcor[,"p.val"],"fdr"))
-degxZcor$sigcode<-ifelse(degxZcor$p.adj<=.05,2,1)
-degxZcor
-
-ggplot(df_deg,aes(x=traitmean,y=deg))+geom_point()+facet_wrap(~variable,nrow=2)+theme_bw()+annotate("text",x=1.2,y=0,label=paste0("rho=",round(degxZcor$rho,3)),adj=1,fontface=degxZcor$sigcode)+ylab("Node Degree")+xlab("Node Mean (Z Score)")
-
-ggsave("figs/Degree~traitmeans.jpeg")
-
-## Graph transitivity ~ Trait means for all traits
-tmp<-subset(df_melt,var!="deg")
-df_trans<-dcast(tmp,variable+Pop~var)
-transxZcor<-t(sapply(levels(df_trans$variable),function(x) {foo<-subset(df_trans,variable==x)
-  results2<-cor.test(foo$transitivity,foo$traitmean,method="s")
-  return(c(results2$estimate,results2$p.value))})) #get correlation bw degree & trait mean for each trait
-colnames(transxZcor)<-c("rho","p.val")
-transxZcor<-data.frame(transxZcor,p.adj=p.adjust(transxZcor[,"p.val"],"fdr"))
-transxZcor$sigcode<-ifelse(transxZcor$p.val<=.05,2,1) #not using p.adj value! Should, but need other populations
-transxZcor
-
-ggplot(df_trans,aes(x=traitmean,y=transitivity))+geom_point()+facet_wrap(~variable,nrow=2)+theme_bw()+annotate("text",x=1.2,y=0,label=paste0("rho= ",round(transxZcor$rho,3)),adj=1,fontface=transxZcor$sigcode)+ylab("Node Clustering Coefficient")+xlab("Node Mean (Z Score)")
-
-ggsave("figs/C~traitmeans.jpeg")
-
-
-
-
-#Plot transitivty~CV
-xypanels<-function(X,Y,meltedData,color) #modified for presentation purposes
-{  
-  if(missing(color)){colorstring<-""}else{colorstring<-paste0(",col=",color)}
-  xycor<-t(sapply(levels(meltedData$variable),function(i) 
-    {
-    SUB<-subset(meltedData,variable==i)   #pull out measures for each trait in turn (e.g. femur dark)
-    x2<-eval(parse(text=paste0("SUB$",X)),envir=SUB)
-    y2<-eval(parse(text=paste0("SUB$",Y)),envir=SUB)
-    results<-cor.test(x2,y2,method="s")
-    return(c(results$estimate,results$p.value)) 
-    })) #get correlation bw Measures for all traits
-  colnames(xycor)<-c("rho","p.val")
-  xycor<-data.frame(xycor,p.adj=p.adjust(xycor[,"p.val"],"fdr"))
-  xycor$sigcode<-ifelse(xycor$p.val<=.05,2,1) #not using p.adj value! Should, but need other populations
-  maxx<-max(eval(parse(text=paste0("meltedData$",X))),na.rm=T)
-  miny<-min(eval(parse(text=paste0("meltedData$",Y))),na.rm=T)
-  graf<-
-    ggplot(meltedData,eval(parse(text=paste0("aes(x=",X,",y=",Y,colorstring,")"))))+PPTtheme+stat_ellipse(alpha=.25,col="white")+
-     geom_point(col="white")+facet_wrap(~variable,nrow=2)+annotate("text",x=maxx,y=miny-.4,col="white",label=paste("rho== ",round(xycor$rho,3)),parse=T,adj=1,fontface=xycor$sigcode)+ylab(Y)+xlab(X)
-    resultado<-list(xycor,graf)
-  plot(graf)
-  names(resultado)<-c("xycor","graf")
-  return(resultado)
-  }#End xypanels
-
-plot(xypanels("traitmean","transitivity",dcast(df_melt,variable+Pop~var))$graf+ylab("Node Clustering Coef")+xlab("Scaled Node Mean"))
-
-ggsave("figs/Evolution Presentation_C~traitmeans.jpeg",width=12)
-
-plot(xypanels("CV","transitivity",dcast(df_melt,variable+Pop~var))$graf+ylab("Node Clustering Coef")+xlab("Node Coefficient of Variation"))
-ggsave("figs/Evolution presentation_trans~CV.jpeg",width=10,height=5)
-
-plot(xypanels("SD","transitivity",dcast(df_melt,variable+Pop~var))$graf+ylab("Node Clustering Coef")+xlab("Node Standard Deviation"))
-ggsave("figs/Evolution presentation_trans~SD.jpeg",width=10,height=5)
-
-# Trait Means (scaled 1:0)~ Trait SD
-gZmeanSD<-xypanels("SD","traitmean",dcast(df_melt,variable+Pop~var))
-ggsave("figs/Evolution presentation_Mean~SD.jpeg",width=10,height=5)
-#Test strongest relationship
-cor.test(Zmeans_0to1$B_Chrom,SD$B_Chrom,method="s")
-cor.test(Zmeans_0to1$B_AvgBri,SD$B_AvgBri,method="s")
-ggplot(aes(x=B_AvgBri,y=B_Chrom),data=Z_0to1,groups=Pop)+geom_point(aes(groups="mean"))
-
-gRawmeanSD<-xypanels("SD","rawmean",dcast(df_melt,variable+Pop~var))
-plot(SD$B_Chrom,Zmeans_0to1$B_Chrom)
-plot(SD$B_AvgBri,Zmeans_0to1$B_AvgBri) #Doesn't make any fucking sense! Should be opposite
-plot(SD$B_AvgBri,SD$B_Chrom)
-plot(Zmeans_0to1$B_AvgBri,Zmeans_0to1$B_Chrom)
-
-
-
+require(car)
+leveneTest(R_Chrom~Pop,machos)
+boxplot(R_Chrom~Pop,machos)
+tapply(machos$R_Chrom,machos$Pop,sd,na.rm=T)
