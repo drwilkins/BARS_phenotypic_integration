@@ -39,17 +39,39 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 #Read in my custom function definitions
 source_url("https://dl.dropboxusercontent.com/s/b32xvn9x18gahc6/bioworkflow.R") #bioworkflow.R script
 D.raw<-read.csv("data/8pop.MF.TCS.csv")
-quotenames(D.raw)
-toi<-c('band','Pop','Year','bandyear','Sex','CI1','mRWL','maxTS','Mass','T_tcs.h.theta','T_tcs.h.phi','T_tcs.r.achieved','T_sum.B2','R_tcs.h.theta','R_tcs.h.phi','R_tcs.r.achieved','R_sum.B2','B_tcs.h.theta','B_tcs.h.phi','B_tcs.r.achieved','B_sum.B2','V_tcs.h.theta','V_tcs.h.phi','V_tcs.r.achieved','V_sum.B2')
-D<-D.raw[,toi]
-head(D)
-#check that there are no issues with data entry
-#class(D$Year)<-"factor"
-check_class(D)
+ggplot(D.raw,aes(x=Pop,y=T_Avg.Brightness))+geom_boxplot()
+#There are still a TON of Colorado outliers for several color axes
+NA_outliers(subset(D.raw,Pop=="CO"),c(.01,.95),id="band")
+#get rid of these bastards
+COfixed<-NA_outliers(subset(D.raw,Pop=="CO"),c(.01,.95),id="band")$newdata
+#rejoin with D.raw
+D<-rbind(subset(D.raw,Pop!="CO"),COfixed)
+ggplot(D,aes(x=Pop,y=T_Avg.Brightness))+geom_boxplot()
+
+NA_outliers(subset(D,Pop=="TU"),c(.01,.99),id="band")#manually go thru all pops...look good enough, except Turkey
+TUfixed<-NA_outliers(subset(D,Pop=="TU"),c(.01,.99),id="band")$newdata
+#rejoin with D
+D<-rbind(subset(D,Pop!="TU"),TUfixed)
+NA_outliers(subset(D,Pop=="TU"),c(.01,.99),id="band")
+#Leave this one alone
+
+#Now do the whole dataset
 NA_outliers(D,c(.01,.99),id="band",ignore="CI1")
 #Get rid of outlier values
-D2<-NA_outliers(D,c(.01,.99),id="band",ignore="CI1")$newdata
-NA_outliers(D2,id="band") #outliers switched to NA
+D<-NA_outliers(D,c(.01,.99),id="band",ignore="CI1")$newdata
+NA_outliers(D,id="band",ignore="CI1") #outliers switched to NA
+
+#OOOO K! A clean dataset.
+
+### * Something weird happened with the color for those CO individuals...but now it's fixed
+
+quotenames(D.raw)
+toi<-c('band','Pop','Year','bandyear','Sex','CI1','mRWL','maxTS','Mass','T_tcs.h.theta','T_tcs.h.phi','T_tcs.r.achieved','T_sum.B2','R_tcs.h.theta','R_tcs.h.phi','R_tcs.r.achieved','R_sum.B2','B_tcs.h.theta','B_tcs.h.phi','B_tcs.r.achieved','B_sum.B2','V_tcs.h.theta','V_tcs.h.phi','V_tcs.r.achieved','V_sum.B2')
+D2<-D[,toi]
+D2$Year<-as.factor(D2$Year)
+head(D2)
+#check that there are no issues with data entry
+check_class(D2)
 
 
 #************************************************************************
@@ -58,9 +80,9 @@ NA_outliers(D2,id="band") #outliers switched to NA
 D2$popID<-paste(D2$Pop,D2$band)
 sum(duplicated(D2$popID)) #620 duplicates
 #Order D2 by Population, then Year
-D2<-D2[order(D2$Pop,D2$Year),]
+D2<-D2[order(D2$Pop,D2$Year,D2$band),]
 D3<-subset(D2,!duplicated(D2$popID))
-sum(duplicated(D3$popID)) #Removed, now
+sum(duplicated(D3$ID)) #No repeated individuals
 
 ###################################
 #define traits of interest (toi2)
@@ -69,7 +91,7 @@ toi
 shps<-c("square","square",rep("triangle",12))
 
 
-tapply(D3$band,D3$Pop,length)#sample sizes for each pop
+tapply(D3$band,D3$Pop,length)#sample sizes for each pop (including both sexes & incomplete sets)
 
 #reorder factor levels west to east
 #D3$Pop<-factor(df.comb$Pop,levels=c("CO","IA","UK","CR","RM","TR","IL","TW"))
@@ -147,7 +169,7 @@ return(G)}
 # Get list of PCIT-filtered correlation matrices
 ## Males
   Clist_pcitM<-lapply(levels(machos$Pop),function(x) {
-  old<-ClistM[[x]] #current dataset is ith element of list
+  old<-ClistM[[x]] #current dataset is xth element of list
   newdat<-old*0 #initialize 0 matrix w/ same dimensions as old data
   robustnodes<-pcit(old)$idx
   newdat[robustnodes]<-old[robustnodes]#copies only robust nodes over to new dataset (everything else 0)
@@ -156,24 +178,24 @@ names(Clist_pcitM)<-levels(machos$Pop)
 
 ## Females
  Clist_pcitF<-lapply(levels(hembras$Pop),function(x) {
-  old<-ClistF[[x]] #current dataset is ith element of list
+  old<-ClistF[[x]] #current dataset is xth element of list
   newdat<-old*0 #initialize 0 matrix w/ same dimensions as old data
   robustnodes<-pcit(old)$idx
   newdat[robustnodes]<-old[robustnodes]#copies only robust nodes over to new dataset (everything else 0)
   return (newdat)})
 names(Clist_pcitF)<-levels(hembras$Pop)
 
-#Plot M nets
-par(mfrow=c(2,4))
-for (i in 1: length(Clist_pcitM)){
-  Q(Clist_pcitM[[i]],title=names(Clist_pcitM)[i])
-}
-
-#Plot F nets
-par(mfrow=c(2,4))
-for (i in 1: length(Clist_pcitF)){
-  Q(Clist_pcitF[[i]],title=names(Clist_pcitF)[i])
-}
+# #Plot M nets
+# par(mfrow=c(2,4))
+# for (i in 1: length(Clist_pcitM)){
+#   Q(Clist_pcitM[[i]],title=names(Clist_pcitM)[i])
+# }
+# 
+# #Plot F nets
+# par(mfrow=c(2,4))
+# for (i in 1: length(Clist_pcitF)){
+#   Q(Clist_pcitF[[i]],title=names(Clist_pcitF)[i])
+# }
 
 ### **** Some problems with the PCA for small populations (n approaches k vars to extract)
 ###Get PCA scores for all dataframes (Dlist)
@@ -193,11 +215,12 @@ extractM
 extractF#number of factors to extract for each population
 
 # Extract PCA objects for all pops, 5PCs, varimax rotation
-# Although pops had 4-6 eigenvalues greater than 1; but did 5, as compromise
-pcaListM<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistM[[x]][,toi2],rot="varimax",nfactors=extractM[x]))
+# Although pops had 4-5 eigenvalues greater than 1; but did 4, as compromise
+pcaListM<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistM[[x]][,toi2],rot="varimax",nfactors=4))#extractM[x]))
 names(pcaListM)<-names(DlistM)
-pcaListF<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistF[[x]][,toi2],rot="varimax",nfactors=5))
+pcaListF<-lapply(1:length(levels(D3$Pop)),function(x) principal(DlistF[[x]][,toi2],rot="varimax",nfactors=4))
 names(pcaListF)<-names(DlistF)
+#Doesn't work for fems, bc of tiny sample size in Romania
 
 ####
 # Which correlations are in all networks? And what is the average value?
@@ -223,19 +246,19 @@ colscaleF<-seq(1,length(levels(D3$Pop)),1)
 idxM<-which(lower.tri(commonedgesM)&commonedgesM==0,arr.ind=T)
 paste(rownames(commonedgesM)[idxM[,"row"]],colnames(commonedgesM)[idxM[,"col"]],sep="--") 
 nrow(idxM)/length(which(upper.tri(Clist_pcitM[[1]])))
-#16/91=17.6% not present in any pop
+#13.2% not present in any pop
 
 #For FEMALES
 idxF<-which(lower.tri(commonedgesF)&commonedgesF==0,arr.ind=T)
 paste(rownames(commonedgesF)[idxF[,"row"]],colnames(commonedgesF)[idxF[,"col"]],sep="--") 
 nrow(idxF)/length(which(upper.tri(Clist_pcitF[[1]])))
-#9/91=9.9% not present in any pop
+#2.2% not present in any pop
 
 
-#How many edges in all networks?
-idx2<-which(lower.tri(commonedges)&commonedges==8,arr.ind=T)
-paste(rownames(commonedges)[idx2[,"row"]],colnames(commonedges)[idx2[,"col"]],sep="--") 
-#6/182=3.3% are present in all pops
+# #How many edges in all networks?
+# idx2<-which(lower.tri(commonedges)&commonedges==8,arr.ind=T)
+# paste(rownames(commonedges)[idx2[,"row"]],colnames(commonedges)[idx2[,"col"]],sep="--") 
+# #6/182=3.3% are present in all pops
 
 # 
 # col.indices<-apply(commonedges,1:2,function(x){max(which(x>=colscale))})
@@ -307,9 +330,9 @@ ZmeltM<-melt(Z_0to1M,id=c("band","Sex","Pop","Year"))
 ZmeltF<-melt(Z_0to1F,id=c("band","Sex","Pop","Year"))
 
 ggplot(ZmeltM,aes(x=Pop,y=value))+geom_boxplot()+facet_wrap(~variable,nrow=2)+theme_bw()
-ggsave("figs/Trait boxplots_BARS_males.jpeg",width=12)
+#ggsave("figs/Trait boxplots_BARS_males.jpeg",width=12)
 ggplot(ZmeltF,aes(x=Pop,y=value))+geom_boxplot()+facet_wrap(~variable,nrow=2)+theme_bw()
-ggsave("figs/Trait boxplots_BARS_females.jpeg",width=12)
+#ggsave("figs/Trait boxplots_BARS_females.jpeg",width=12)
 
 
 #Make figure for Presentations
@@ -347,7 +370,7 @@ pdf("figs/Evo presentation_8pop-pcit_males.pdf",width=16,height=8)
 #define vertex size
 vertsize<-12#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
 par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
-popnames<-sapply(levels(D3$Pop),function(x) substr(x,1,2))#c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
+popnames<-levels(D3$Pop)#sapply(levels(D3$Pop),function(x) substr(x,1,2))#c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
 for (i in 1: length(levels(D3$Pop))){
   mat<-Clist_pcitM[[i]]
   Q(mat,color="skyblue",border.color="gray20",labels=toi3,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="black",bg="transparent",label.color="black")
@@ -361,7 +384,6 @@ pdf("figs/Evo presentation_8pop-pcit_females.pdf",width=16,height=8)
 #define vertex size
 vertsize<-12#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
 par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
-popnames<-sapply(levels(D3$Pop),function(x) substr(x,1,2))#c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
 for (i in 1: length(levels(D3$Pop))){
   mat<-Clist_pcitF[[i]]
   Q(mat,color="salmon",border.color="gray20",labels=toi3,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="black",bg="transparent",label.color="black")
@@ -377,7 +399,6 @@ pdf("figs/Evo presentation_8pop-pcit_R&T colored diff.pdf",width=16,height=8)
 vertsize<-12
 par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
 nodecols<-c("white","white",rep("orangered",3),rep("orange",9))
-popnames<-c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
 for (i in 1: 8){
   mat<-Clist_pcit[[i]]
   Q(mat,color=nodecols,border.color="gray20",labels=toi2,shape=shps,vsize=vertsize,vsize2=vertsize,edge.color="white",bg="transparent",label.color="white")
@@ -426,6 +447,9 @@ pop.nonclusterdensityF<-sapply(nonbodyF,function(x) (sum(abs(x),na.rm=T)/2)/55)
 IIF<-pop.clusterdensityF/pop.netdensityF
 
 ### Calculate overall body brightness index
+#Which metric to use?
+viz(D.raw,c(19:21,34,35,37,38))
+
 #MALES
 meanbriM<-sapply(DlistM,function(x) {df<-x[,c("R_sum.B2","B_sum.B2","V_sum.B2")]
             return(mean(colMeans(df,na.rm=T)))  })
@@ -442,9 +466,9 @@ jittery<-pop.clusterdensityM+.03
 jittery[6]<-jittery[6]-.05
 
 #MALES
-g1<-ggplot(data=IIdfM,aes(x=meanbriM,y=pop.clusterdensityM,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterx,y=jittery)+xlab("")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Males")#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
+(g1<-ggplot(data=IIdfM,aes(x=meanbriM,y=pop.clusterdensityM,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterx,y=jittery)+xlab("")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Males"))#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
 cor.test(meanbriM,pop.clusterdensityM,method="s")
-ggsave("figs/Color Integ Index~Body Bri_males.jpg")
+#ggsave("figs/Color Integ Index~Body Bri_males.jpg")
 
 jitterxF<-meanbriF+.009
 jitterxF[5]<-jitterxF[5]+.0012
@@ -452,9 +476,9 @@ jitterxF[3]<-jitterxF[3]-.02
 jitteryF<-pop.clusterdensityF+.03
 jitteryF[6]<-jitteryF[6]-.05
 #FEMALES
-g2<-ggplot(data=IIdfF,aes(x=meanbriF,y=pop.clusterdensityF,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterxF,y=jitteryF)+xlab("Body Brightness Index")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Females")#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
-cor.test(meanbriM,pop.clusterdensityM,method="s")
-ggsave("figs/Color Integ Index~Body Bri_females.jpg")
+(g2<-ggplot(data=IIdfF,aes(x=meanbriF,y=pop.clusterdensityF,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterxF,y=jitteryF)+xlab("Body Brightness Index")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Females"))#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
+cor.test(meanbriF,pop.clusterdensityF,method="s")
+#ggsave("figs/Color Integ Index~Body Bri_females.jpg")
 
 require(grid)
 jpeg("figs/Color Integ Index~Body Bri_both.jpg")
