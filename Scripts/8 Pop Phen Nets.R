@@ -171,7 +171,7 @@ return(G)}
   Clist_pcitM<-lapply(levels(machos$Pop),function(x) {
   old<-ClistM[[x]] #current dataset is xth element of list
   newdat<-old*0 #initialize 0 matrix w/ same dimensions as old data
-  robustnodes<-pcit(old)$idx
+  robustnodes<-pcit(old,tol.type="min")$idx
   newdat[robustnodes]<-old[robustnodes]#copies only robust nodes over to new dataset (everything else 0)
   return (newdat)})
 names(Clist_pcitM)<-levels(machos$Pop)
@@ -366,7 +366,7 @@ toi3<-c("WL","TS","Tthet","TRach","TBri","Rthet","RRach","RBri","Bthet","BRach",
 #-------------------------
 # Plot Networks!!!
 #MALES
-pdf("figs/Evo presentation_8pop-pcit_males.pdf",width=16,height=8)
+pdf("figs/Evo presentation_8pop-pcit_males (tol.type=min).pdf",width=16,height=8)
 #define vertex size
 vertsize<-12#apply(Zmeans_0to1_revbri[,-1],2,function(x)as.numeric(15*x))+8
 par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
@@ -428,19 +428,21 @@ nonbodyF<-lapply(ClistF,function(x) {x[bodytraits,bodytraits]<-0 #Get corr matri
 
 ## MALES
 #Calculate |density| of whole network for each population
-pop.netdensityM<-sapply(ClistM,function(x) sum(abs(x),na.rm=T)/2/91)
+pop.netdensityM<-sapply(ClistM,function(x) sum(abs(x[upper.tri(x)]))/sum(upper.tri(x)))
 #Calculate |density| of this cluster for each
-pop.clusterdensityM<-sapply(bodyM,function(x) (sum(abs(x),na.rm=T)/2)/36)
+pop.clusterdensityM<-sapply(bodyM,function(x) sum(abs(x[upper.tri(x)]))/sum(upper.tri(x)))
 #Calculate similar index, but for noncluster
 pop.nonclusterdensityM<-sapply(nonbodyM,function(x) (sum(abs(x),na.rm=T)/2)/55)
 #Calculate ratio of cluster to network density (integration index)
 IIM<-pop.clusterdensityM/pop.netdensityM
+#calc degree
+popwtdeg<-sapply(Clist_pcitM,function(x) sum(x[upper.tri(x)]!=0)/sum(upper.tri(x)))
 
 ## FEMALES
 #Calculate |density| of whole network for each population
-pop.netdensityF<-sapply(ClistF,function(x) sum(abs(x),na.rm=T)/2/91)
+pop.netdensityF<-sapply(ClistF,function(x) sum(abs(x[upper.tri(x)]))/sum(upper.tri(x)))
 #Calculate |density| of this cluster for each
-pop.clusterdensityF<-sapply(bodyF,function(x) (sum(abs(x),na.rm=T)/2)/36)
+pop.clusterdensityF<-sapply(bodyF,function(x) sum(abs(x[upper.tri(x)]))/sum(upper.tri(x)))
 #Calculate similar index, but for noncluster
 pop.nonclusterdensityF<-sapply(nonbodyF,function(x) (sum(abs(x),na.rm=T)/2)/55)
 #Calculate ratio of cluster to network density (integration index)
@@ -448,40 +450,36 @@ IIF<-pop.clusterdensityF/pop.netdensityF
 
 ### Calculate overall body brightness index
 #Which metric to use?
-viz(D.raw,c(19:21,34,35,37,38))
+viz(D,c(19:21,33,37,38))
 
 #MALES
 meanbriM<-sapply(DlistM,function(x) {df<-x[,c("R_sum.B2","B_sum.B2","V_sum.B2")]
             return(mean(colMeans(df,na.rm=T)))  })
-IIdfM<-data.frame(IIM,pop.netdensityM,pop.clusterdensityM,pop.nonclusterdensityM,meanbriM,Pop=names(IIM))
+IIdfM<-data.frame(IIM,pop.netdensityM,pop.clusterdensityM,pop.nonclusterdensityM,meanbriM,popwtdeg,Pop=names(IIM))
 #FEMALES
 meanbriF<-sapply(DlistF,function(x) {df<-x[,c("R_sum.B2","B_sum.B2","V_sum.B2")]
             return(mean(colMeans(df,na.rm=T)))  })
 IIdfF<-data.frame(IIF,pop.netdensityF,pop.clusterdensityF,pop.nonclusterdensityF,meanbriF,Pop=names(IIF))
 
-jitterx<-meanbriM+.009
-jitterx[5]<-jitterx[5]+.0012
-jitterx[3]<-jitterx[3]-.02
-jittery<-pop.clusterdensityM+.03
-jittery[6]<-jittery[6]-.05
+jitterx<-meanbriM+1.5
+jittery<-pop.clusterdensityM+.008
+
 
 #MALES
-(g1<-ggplot(data=IIdfM,aes(x=meanbriM,y=pop.clusterdensityM,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterx,y=jittery)+xlab("")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Males"))#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
+(g1<-ggplot(data=IIdfM,aes(x=meanbriM,y=pop.clusterdensityM,label=popnames))+geom_point(size=3,aes(col=meanbriM))+geom_point(size=3,shape=1,col="black")+geom_text(size=5,col="black",x=jitterx,y=jittery)+xlab("")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Males"))#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
 cor.test(meanbriM,pop.clusterdensityM,method="s")
 #ggsave("figs/Color Integ Index~Body Bri_males.jpg")
 
 jitterxF<-meanbriF+.009
-jitterxF[5]<-jitterxF[5]+.0012
-jitterxF[3]<-jitterxF[3]-.02
 jitteryF<-pop.clusterdensityF+.03
-jitteryF[6]<-jitteryF[6]-.05
+
 #FEMALES
-(g2<-ggplot(data=IIdfF,aes(x=meanbriF,y=pop.clusterdensityF,label=popnames))+geom_point(size=2,aes(col=meanbriM))+geom_text(size=5,col="black",x=jitterxF,y=jitteryF)+xlab("Body Brightness Index")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Females"))#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
+(g2<-ggplot(data=IIdfF,aes(x=meanbriF,y=pop.clusterdensityF,label=popnames))+geom_point(size=3,aes(col=meanbriM))+geom_point(size=3,shape=1,col="black")+geom_text(size=5,col="black",x=jitterxF,y=jitteryF)+xlab("Body Brightness Index")+ylab("Integration Index")+stat_ellipse(col="gray")+theme_bw()+scale_colour_gradient(limits=c(20, 40), low="#CC6600", high="#FFFFCC",guide=F)+ggtitle("Females"))#+annotate("text",x=12,y=.2,adj=0,label="rho= .809, p= 0.022",col="black",size=5) #paste0("rho == ~-.833~ p== 0.015"),parse=T,col="white")
 cor.test(meanbriF,pop.clusterdensityF,method="s")
 #ggsave("figs/Color Integ Index~Body Bri_females.jpg")
 
 require(grid)
-jpeg("figs/Color Integ Index~Body Bri_both.jpg")
+jpeg("figs/Color Integ Index~Body Bri_both (TCS).jpg")
 multiplot(g1,g2)
 dev.off()
 
@@ -495,38 +493,36 @@ dev.off()
 #############
 ##### Plot networks ordered by modularity
 #reorder factor levels west to east
-df.comb$Pop2<-factor(df.comb$Pop)
-levels(df.comb$Pop2)=rank(pop.clusterdensity)
-df.comb$Pop2<-factor(df.comb$Pop2,levels=8:1)
+machos$Pop2<-factor(machos$Pop)
+levels(machos$Pop2)=rank(pop.clusterdensityM)
 
 
 
-pdf("figs/Evo presentation_8pop-pcit_ordered by clustering.pdf",width=16,height=8)
+
+pdf("figs/8pop-pcit_ordered by clustering (TCS).pdf",width=16,height=8)
 #define vertex size
-NewOrder<-match(1:8,rank(pop.clusterdensity))#order of pops by modularity
+(NewOrderM<-order(rank(pop.clusterdensityM)))#order of pops by modularity
 
 #vertsize<-12
 par(mfrow=c(2,4),mar=c(3,3,3,3),xpd=T,oma=rep(1,4),ps=18)
-nodecols<-c("white","white",rep("white",3),rep("orange",9))
-popnames<-c("Colorado","New York","UK","Czech Rep","Romania","Turkey","Israel","Taiwan")
-#Change Brightness to Darkness so node scaling is in consistent direction
-Zmeans.dk<-Zmeans_0to1
-Zmeans.dk[,c(4,7,10,13)]<-apply(Zmeans.dk[,c(4,7,10,13)],2,function(x) {1-x})
+nodecols<-c(rep("white",5),rep("orange",9))
+# #Change Brightness to Darkness so node scaling is in consistent direction
+# Zmeans.dkM<-Zmeans_0to1M
+# Zmeans.dkM[,c(4,7,10,13)]<-apply(Zmeans.dkM[,c(4,7,10,13)],2,function(x) {1-x})
 #new labls, changing Bri to Dk, bc of reversed order
 toi3<-c("RWL","RTS","TDk","THue","TChr","RDk","RHue","RChr","BDk","BHue","BChr","VDk","VHue","VChr")
 
 for (i in 1: 8){
-  mat<-Clist_pcit[[NewOrder[i] ]]
-  scalar<-as.numeric(10*Zmeans.dk[NewOrder[i],-1])
-  Q(mat,color=nodecols,border.color="gray20",labels=toi3,shape=shps,
-    vsize=scalar+2+scalar^.8,
-    edge.color="white",bg="transparent",label.color="white")
+  mat<-Clist_pcitM[[NewOrderM[i] ]]
+  scalar<-as.numeric(10*Zmeans_0to1M[NewOrderM[i],-1])
+  Q(mat,color=nodecols,border.color="gray20",labels=toi2,shape=shps,
+    vsize=scalar+2+scalar^.8)+theme_bw()
   
-  mtext(popnames[NewOrder[i]],3,line=-.6,at=-.8,,adj=.5,col="white")
+  mtext(names(Clist_pcitM)[NewOrderM[i]],3,line=-.6,at=-.8,,adj=.5,col="black")
 }
 dev.off()
 
 require(car)
-leveneTest(R_Chrom~Pop,machos)
+leveneTest(R_sum.B2~Pop,machos)
 boxplot(R_Chrom~Pop,machos)
 tapply(machos$R_Chrom,machos$Pop,sd,na.rm=T)
