@@ -186,7 +186,13 @@ check_class<-function(dataframe){
 #Check for outliers (nondestructive; changelog=="No Changes" means no crazy values)
 #pops_8
 NA_outliers(pops_8[,toi],id = "band",ignore=c("date","year","ci1","rs", "population","sex"))
-#pops_8 Good
+#pops_8 Seems Good, but there's apparently a lot of indivs with messed up chroma values in the 100s
+(tmp <- pops_8 %>% filter(t.chrom>1|b.chrom>1|r.chrom>1|v.chrom>1))
+#26 screwed up chrom rows, , so we'll just take em out since we have tons of CO indivs
+pops_8 <-  pops_8 %>% filter(!(t.chrom>1|b.chrom>1|r.chrom>1|v.chrom>1))
+#test again...should be empty tibble
+ pops_8 %>% filter(t.chrom>1|b.chrom>1|r.chrom>1|v.chrom>1)
+#OK, fixed.
 
 #pops_asia
 NA_outliers(pops_asia[,toi],id = "band",ignore=c("date","year","ci1","rs", "population","sex"))
