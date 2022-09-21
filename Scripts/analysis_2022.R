@@ -261,4 +261,10 @@ for (i in 1: length(female_pops)){
 dev.off()
 
 
+###DS: Implementing calculation of INT coefficient for phenotypic integration
 
+data_list_males
+traits_col
+
+lapply(data_list_males function(x){
+  data_list_males[[x]][,traits_col]})
