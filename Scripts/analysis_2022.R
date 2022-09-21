@@ -1,5 +1,5 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX)
 # install_github("nathanhaigh/pcit@v1.6.0")#not on CRAN at the moment (also seems to be broken)
 
 #Import all data
@@ -49,9 +49,23 @@ pop_netdensity_females <- sapply(corr_list_females,function(x) sum(abs(x[upper.t
 
 pop_netdensity_males <- sapply(corr_list_males,function(x) sum(abs(x[upper.tri(x)]))/sum(upper.tri(x)))
 
+pint_list_females=lapply(data_list_females, function(x){
+  tb=na.omit(x[,traits_col])
+  PINT=pint(tb)
+})
+
+pint_list_males=lapply(data_list_males, function(x){
+  tb=na.omit(x[,traits_col])
+  PINT=pint(tb)
+})
+
+pint_females=sapply(pint_list_females, function(x) x[[1]])
+pint_males=sapply(pint_list_males, function(x) x[[1]])
+
 #Make data frame for main figure (with throat and breast chroma and network density)
 integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom"),mean,na.rm=TRUE) %>% arrange(sex,population) %>% rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom)
 integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
+integ0$pint <- c(pint_females, pint_males)
 integ <- integ0 %>% arrange(sex,desc(network_density))
 
 #throat patch graph
@@ -95,6 +109,49 @@ cor.test(subset(integ,sex=="M")$mean.t.chrom,
   ylab("Network Density")
   )
 
+#throat patch graph with PINT (Wagner 1984 method for phenotypic integration)
+(G_t_pint<-ggplot(integ,
+            aes(x = mean.t.chrom, y = pint, fill = mean.t.chrom)) + 
+  stat_ellipse() +
+  geom_point(size=3,pch=21,col="black") +
+  scale_fill_gradient(
+    limits = range(integ$mean.t.chrom),
+    low = "#FFFFCC",
+    high = "#CC6600",
+    guide = "none"
+  ) + 
+  facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+  ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
+  xlab("Throat | Average Population Darkness (Chroma)")+
+  ylab("Phenotypic Integration (PINT)")
+)
+
+
+#breast patch graph with PINT
+(G_r_pint<-ggplot(integ,
+             aes(x = mean.r.chrom, y = pint, fill = mean.r.chrom)) + 
+    stat_ellipse() +
+    geom_point(size=3,pch=21,col="black") +
+    scale_fill_gradient(
+      limits = range(integ$mean.r.chrom),
+      low = "#FFFFCC",
+      high = "#CC6600",
+      guide = "none"
+    ) + 
+    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+    ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
+    xlab("Breast | Average Population Darkness (Chroma)")+
+    ylab("Phenotypic Integration (PINT)")
+)
+
+#nonsignificant relationship with THROAT darkness & network density for both sexes
+cor.test(subset(integ,sex=="F")$mean.t.chrom,
+         subset(integ,sex=="F")$network_density,method = "spearman")
+
+cor.test(subset(integ,sex=="M")$mean.t.chrom,
+         subset(integ,sex=="M")$network_density,method = "spearman")
+
+
 #Significant relationship with BREAST darkness & network density for both sexes
 cor.test(subset(integ,sex=="F")$mean.r.chrom,
          subset(integ,sex=="F")$network_density,method = "spearman")
@@ -102,6 +159,12 @@ cor.test(subset(integ,sex=="F")$mean.r.chrom,
 cor.test(subset(integ,sex=="M")$mean.r.chrom,
          subset(integ,sex=="M")$network_density,method = "spearman")
 
+# same with PINT -- stronger correlations
+cor.test(subset(integ,sex=="F")$mean.r.chrom,
+         subset(integ,sex=="F")$pint,method = "spearman")
+
+cor.test(subset(integ,sex=="M")$mean.r.chrom,
+         subset(integ,sex=="M")$pint,method = "spearman")
 
 
 # Output Fig 1.  Darker birds have denser color networks (for R, but not T) --------
@@ -109,6 +172,9 @@ cor.test(subset(integ,sex=="M")$mean.r.chrom,
 #patchwork syntax
 (G_combined<-G_t/G_r)
 ggsave("figs/Fig 1. network density ~ breast + throat chroma.png",dpi=300)
+
+(G_combined<-G_t_pint/G_r_pint)
+ggsave("figs/Fig 1.alternate PINT ~ breast + throat chroma.png",dpi=300,width=13,height=10,units="in")
 
 
 #Pretty interesting that Egypt has such a low network density for its darkness. 
@@ -261,10 +327,3 @@ for (i in 1: length(female_pops)){
 dev.off()
 
 
-###DS: Implementing calculation of INT coefficient for phenotypic integration
-
-data_list_males
-traits_col
-
-lapply(data_list_males function(x){
-  data_list_males[[x]][,traits_col]})
