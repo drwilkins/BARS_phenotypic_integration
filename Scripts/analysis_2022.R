@@ -242,7 +242,7 @@ cor.test(subset(integ,sex=="M")$mean.r.avg.bright,
 
 # Output Fig S1.  Darker birds have denser color networks (for R, but not T) --------
 (G_combined2<-G_t_pint2/G_r_pint2)
-ggsave("figs/Fig S1.alternate PINT ~ breast + throat avg brightness.png",dpi=300,width=13,height=10,units="in")
+ggsave("figs/Fig S1. PINT ~ breast + throat avg brightness.png",dpi=300,width=13,height=10,units="in")
 
 
 
