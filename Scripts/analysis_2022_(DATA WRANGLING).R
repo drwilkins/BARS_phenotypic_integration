@@ -5,33 +5,41 @@ p_load(tidyverse,skimr,readxl)
 # Import all data files ---------------------------------------------------
 # original 8pop data
 # CO=Colorado, CZ=Czech Rep., IS=Israel, NY=New York, RO=Romania, TA=Taiwan, TU=Turkey, UK
-pops_8<-read_csv("Data/8pop.MF.TCS.csv") %>% 
-        mutate(population=recode(Pop,Colorado="CO")) #some vals are Colorado; should be CO
+pops_8_0<-read_csv("Data/8pop.MF.TCS.csv") %>% 
+        mutate(population=recode(Pop,Colorado="CO",UK="Cornwall"),
+               country=recode(Pop,CO="USA",
+                              NY="Ithaca",
+                              IS="Israel",
+                              CZ="Czech Rep.",
+                              RO="Romania",
+                              TU="Turkey",
+                              TA="Taiwan"
+                              )) #some vals are Colorado; should be CO
 #just make all the names lowercase as a first step to merging.
-names(pops_8)<-tolower(names(pops_8))
+names(pops_8_0)<-tolower(names(pops_8_0))
 #change _ to . for conformity with other pops
-names(pops_8) <- gsub("_","\\.",names(pops_8))
+names(pops_8_0) <- gsub("_","\\.",names(pops_8_0))
 
 #Asian pops (Russia, China, Mongolia, Japan)
-pops_asia<-read_csv("Data/all individual phenotype data/asia_pheno_all.csv")
-names(pops_asia)<-tolower(names(pops_asia))
+pops_asia0<-read_csv("Data/all individual phenotype data/asia_pheno_all.csv")
+names(pops_asia0)<-tolower(names(pops_asia0))
 
 #Morocco
-pops_mor<-read_csv("Data/all individual phenotype data/morocco_pheno_all.csv")
-names(pops_mor)<-tolower(names(pops_mor))
+pops_mor0<-read_csv("Data/all individual phenotype data/morocco_pheno_all.csv") %>% mutate(country="Morocco")
+names(pops_mor0)<-tolower(names(pops_mor0))
 
 #Egypt
-pops_egy<-read_csv("Data/all individual phenotype data/egypt_pheno_all.csv")
-names(pops_egy)<-tolower(names(pops_egy))
+pops_egy0<-read_csv("Data/all individual phenotype data/egypt_pheno_all.csv") %>% mutate(country="Egypt")
+names(pops_egy0)<-tolower(names(pops_egy0))
 
 #Liu, Yu's populatino: Shuangyashan City, Heilongjiang Province, China in 2015
 #Far NE China, next to Russia, North of North Korea
-pops_shuan<-read_excel("Data/all individual phenotype data/data_swallow_sys_2015_LY.xlsx",1)
+pops_shuan0<-read_excel("Data/all individual phenotype data/data_swallow_sys_2015_LY.xlsx",1) %>% mutate(country="China")
 
 # Define traits of interest -----------------------------------------------
 # And ensure all pops have same names
 
-toi<-c('band','population','year','sex','ci1','rs','tail.mean','weight','date','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r.chrom','b.avg.bright','b.hue','b.chrom','v.avg.bright','v.hue','v.chrom')
+toi<-c('band','population','country', 'year','sex','ci1','rs','tail.mean','weight','date','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r.chrom','b.avg.bright','b.hue','b.chrom','v.avg.bright','v.hue','v.chrom')
 
 
 # Define function for checking names of datasets --------------------------
@@ -47,17 +55,17 @@ toi_names_match<-function(df){
 
 #What names are missing/mismatched?
 data.frame(TOI=toi,
-       not_in_pop8=toi_names_match(df=pops_8),
-       not_in_asia=toi_names_match(df=pops_asia),
-       not_in_mor=toi_names_match(df=pops_mor),
-       not_in_egypt=toi_names_match(df=pops_egy),
-       not_in_shuan=toi_names_match(pops_shuan)
+       not_in_pop8=toi_names_match(df=pops_8_0),
+       not_in_asia=toi_names_match(df=pops_asia0),
+       not_in_mor=toi_names_match(df=pops_mor0),
+       not_in_egypt=toi_names_match(df=pops_egy0),
+       not_in_shuan=toi_names_match(pops_shuan0)
        )
 
 
 # Fix missing variables across all data sets ------------------------------
 pops_8 <-
-  pops_8 %>% 
+  pops_8_0 %>% 
    rename(
     weight = mass,
     t.avg.bright = t.avg.brightness,
@@ -65,17 +73,20 @@ pops_8 <-
     r.avg.bright = r.avg.brightness,
     v.avg.bright = v.avg.brightness) %>% 
   mutate(tail.mean = mean(c(mlts, mrts), na.rm = TRUE)) #add tail.mean
+
 pops_asia <-
-  pops_asia %>%
+  pops_asia0 %>%
   mutate(
     population= pop3, #I believe this is the most relevant column
     date = NA,
     year = NA,
     ci1 = NA,
     rs = NA
-  )
+  ) %>% 
+  filter(population!="shuang") #We're going to add a larger sample from this pop
+
 pops_mor <- 
-  pops_mor %>% 
+  pops_mor0 %>% 
   rename() %>% 
   mutate(
     population= "Morocco",
@@ -85,7 +96,7 @@ pops_mor <-
   )
 
 pops_egy <- 
-  pops_egy %>% 
+  pops_egy0%>% 
   rename() %>% 
   mutate(
     population= "Egypt",
@@ -95,12 +106,11 @@ pops_egy <-
   )
 
 pops_shuan<-
-  pops_shuan %>% 
+  pops_shuan0 %>% 
   rename(band="number")
 
 pops_shuan$rs=as.numeric(pops_shuan$rs.1st.brood)+as.numeric(pops_shuan$rs.2nd.brood)
 
-#Ci1 is stupid Excel date
 
 #Are all names matching now?
 #What names are missing/mismatched?
@@ -240,7 +250,7 @@ pops_shuan$date<-as.character(pops_shuan$date)
 pops_shuan$year<-as.character(pops_shuan$year)
 allpops<-bind_rows(pops_8[,toi],pops_asia[,toi],pops_mor[,toi],pops_egy[,toi],pops_shuan[,toi])
 
-#77 Populations!!!
+#76 Populations!!!
 allpops$population %>% unique() %>% length()
 
 
@@ -256,14 +266,69 @@ nrow(allpops)-nrow(allpops_certain_sexes) #how many indivs removed for indetermi
 allpops_summ0<-allpops_certain_sexes %>% group_by(population) %>%  summarise(n=n()) %>% as.data.frame()
 nrow(allpops_certain_sexes)
 allpops_certain_sexes$band_x_pop<-paste(allpops_certain_sexes$band,allpops_certain_sexes$population)
-allpops_final<-allpops_certain_sexes %>% filter(!duplicated(band_x_pop))
-allpops_summ<-allpops_final %>% group_by(population) %>%  summarise(n=n()) %>% as.data.frame()
+allpops_nearlyfinal<-allpops_certain_sexes %>% filter(!duplicated(band_x_pop))
+allpops_summ<-allpops_nearlyfinal %>% group_by(population) %>%  summarise(n=n()) %>% as.data.frame()
 #Changes (sample size before and after removing duplicates over years)
 data.frame(population=allpops_summ0$population,before=allpops_summ0$n,after=allpops_summ$n,change=allpops_summ$n-allpops_summ0$n)
 #~600 indivs removed from NY, CO, and TR
-nrow(allpops_final) 
+nrow(allpops_nearlyfinal) 
 
 
+# Add Lat Long & other useful meta data -----------------------------------
+
+meta<-read_excel("Data/bars.meta.locationinfo.xlsx",sheet = 1,skip=1) %>% 
+    mutate(population=recode(location,"shuang"="shuangyashan","damietta"="egypt"))
+#rename allpops for concordance
+allpops_semifinal <- allpops_nearlyfinal %>% mutate(population=recode(tolower(population),
+                                                                      "co"="colorado",
+                                                                        "ta"="taiwan",
+                                                                        "tu"="turkey",
+                                                                        "ro"="romania",
+                                                                        "ny"="ithaca",
+                                                                        "is"="israel",
+                                                                      "cz"="czech rep",
+                                                                      "krasnoyarsk_kansk"="krasnoyarsk",
+                                                                      "kund_yad"="kundor",
+                                                                      "mala_male"="malamolevo",
+                                                                      "novo_krasny"="krasnoyarsk",
+                                                                      "dak_civ"="daktuy",
+                                                                      "holonbur_norovlin"="norovlin",
+                                                                      "batnorov_norovlin"="norovlin",
+                                                                      "cincer_erdene_tsenher"="cincer.mandel.som")) 
+  
+#add in lat long for most
+allpops_final<-left_join(allpops_semifinal,meta[,c("population","lat","long","zone","gps","gbs_band")],by="population")
+allpops_final$lat[which(allpops_final$population=="morocco")]<-mean(unique(pops_mor0$lat))
+allpops_final$long[which(allpops_final$population=="morocco")]<-mean(unique(pops_mor0$long))
+
+
+#where is lat long missing?
+allpops_final %>% filter(is.na(lat)) %>% group_by(population) %>% summarize(n=n())
+
+#####
+#Add some manually
+allpops_final$lat[which(allpops_final$population=="taiwan")]<-25.041435
+allpops_final$long[which(allpops_final$population=="taiwan")]<-121.612744
+
+allpops_final$lat[which(allpops_final$population=="turkey")]<-36.85771
+allpops_final$long[which(allpops_final$population=="turkey")]<-31.16061
+
+allpops_final$lat[which(allpops_final$population=="romania")]<-46.75319
+allpops_final$long[which(allpops_final$population=="romania")]<-23.83464
+
+allpops_final$lat[which(allpops_final$population=="czech rep")]<-49.0692
+allpops_final$long[which(allpops_final$population=="czech rep")]<-14.7112
+
+allpops_final$lat[which(allpops_final$population=="cornwall")]<- 50.322669
+allpops_final$long[which(allpops_final$population=="cornwall")]<- -5.019579
+
+allpops_final$lat[which(allpops_final$population=="ithaca")]<- 42.45
+allpops_final$long[which(allpops_final$population=="ithaca")]<- -76.47
+
+#where is lat long missing?
+allpops_final %>% filter(is.na(lat)) %>% group_by(population) %>% summarize(n=n())
+
+#just the hybrid zones are missing lat long
 
 # Output combined data ----------------------------------------------------
 

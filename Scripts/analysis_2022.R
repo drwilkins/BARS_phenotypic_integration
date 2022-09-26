@@ -17,7 +17,7 @@ traits_col <- traits[-c(1)]
 #Let's say 20 is our minimium number of each sex
 min_samples<-12
 pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
-nrow(pops_w_min_samples) #22 populations with at least this many individuals
+nrow(pops_w_min_samples) #29 populations with at least 12 individuals
 d<-d0 %>% filter(population %in% pops_w_min_samples$population)
 nrow(d)
 d$population<-as.factor(d$population)
@@ -63,7 +63,7 @@ pint_females=sapply(pint_list_females, function(x) x[[1]])
 pint_males=sapply(pint_list_males, function(x) x[[1]])
 
 #Make data frame for main figure (with throat and breast chroma and network density)
-integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom"),mean,na.rm=TRUE) %>% arrange(sex,population) %>% rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom)
+integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright"),mean,na.rm=TRUE) %>% arrange(sex,population) %>% rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom,mean.t.avg.bright=t.avg.bright,mean.r.chrom=r.chrom,mean.r.avg.bright=r.avg.bright)
 integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
 integ0$pint <- c(pint_females, pint_males)
 integ <- integ0 %>% arrange(sex,desc(network_density))
@@ -178,6 +178,72 @@ ggsave("figs/Fig 1.alternate PINT ~ breast + throat chroma.png",dpi=300,width=13
 
 
 #Pretty interesting that Egypt has such a low network density for its darkness. 
+
+
+
+# Make SuppMat 1 (Phen Integ ~ Avg. Bright instead of Chrom) --------------
+#throat patch graph with PINT (Wagner 1984 method for phenotypic integration)
+(G_t_pint2<-ggplot(integ,
+            aes(x = mean.t.avg.bright, y = pint, fill = mean.t.avg.bright)) + 
+  stat_ellipse() +
+  geom_point(size=3,pch=21,col="black") +
+  scale_fill_gradient(
+    limits = range(integ$mean.t.avg.bright),
+    low = "#CC6600",
+    high = "#FFFFCC",
+    guide = "none"
+  ) + 
+  facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+  ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
+  xlab("Throat | Average Population Darkness (Average Brightness)")+
+  ylab("Phenotypic Integration (PINT)")
+)
+
+
+#breast patch graph with PINT
+(G_r_pint2<-ggplot(integ,
+             aes(x = mean.r.avg.bright, y = pint, fill = mean.r.avg.bright)) + 
+    stat_ellipse() +
+    geom_point(size=3,pch=21,col="black") +
+    scale_fill_gradient(
+      limits = range(integ$mean.r.avg.bright),
+      low = "#CC6600",
+      high = "#FFFFCC",
+      guide = "none"
+    ) + 
+    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+    ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
+    xlab("Breast | Average Population Darkness (Chroma)")+
+    ylab("Phenotypic Integration (PINT)")
+)
+
+#nonsignificant relationship with THROAT darkness & network pint for both sexes
+cor.test(subset(integ,sex=="F")$mean.t.avg.bright,
+         subset(integ,sex=="F")$pint,method = "spearman")
+
+cor.test(subset(integ,sex=="M")$mean.t.avg.bright,
+         subset(integ,sex=="M")$pint,method = "spearman")
+
+
+#Significant relationship with BREAST darkness & network density for both sexes
+cor.test(subset(integ,sex=="F")$mean.r.avg.bright,
+         subset(integ,sex=="F")$network_density,method = "spearman")
+
+cor.test(subset(integ,sex=="M")$mean.r.avg.bright,
+         subset(integ,sex=="M")$network_density,method = "spearman")
+
+# same with PINT -- stronger correlations
+cor.test(subset(integ,sex=="F")$mean.r.avg.bright,
+         subset(integ,sex=="F")$pint,method = "spearman")
+
+cor.test(subset(integ,sex=="M")$mean.r.avg.bright,
+         subset(integ,sex=="M")$pint,method = "spearman")
+
+
+# Output Fig S1.  Darker birds have denser color networks (for R, but not T) --------
+(G_combined2<-G_t_pint2/G_r_pint2)
+ggsave("figs/Fig S1.alternate PINT ~ breast + throat avg brightness.png",dpi=300,width=13,height=10,units="in")
+
 
 
 
