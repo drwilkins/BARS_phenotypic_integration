@@ -1,5 +1,5 @@
 require(pacman)
-p_load(tidyverse,skimr)
+p_load(tidyverse,skimr,readxl)
 
 
 # Import all data files ---------------------------------------------------
@@ -24,6 +24,9 @@ names(pops_mor)<-tolower(names(pops_mor))
 pops_egy<-read_csv("Data/all individual phenotype data/egypt_pheno_all.csv")
 names(pops_egy)<-tolower(names(pops_egy))
 
+#Liu, Yu's populatino: Shuangyashan City, Heilongjiang Province, China in 2015
+#Far NE China, next to Russia, North of North Korea
+pops_shuan<-read_excel("Data/all individual phenotype data/data_swallow_sys_2015_LY.xlsx",1)
 
 # Define traits of interest -----------------------------------------------
 # And ensure all pops have same names
@@ -47,7 +50,8 @@ data.frame(TOI=toi,
        not_in_pop8=toi_names_match(df=pops_8),
        not_in_asia=toi_names_match(df=pops_asia),
        not_in_mor=toi_names_match(df=pops_mor),
-       not_in_egypt=toi_names_match(df=pops_egy)
+       not_in_egypt=toi_names_match(df=pops_egy),
+       not_in_shuan=toi_names_match(pops_shuan)
        )
 
 
@@ -90,13 +94,22 @@ pops_egy <-
     rs = NA
   )
 
+pops_shuan<-
+  pops_shuan %>% 
+  rename(band="number")
+
+pops_shuan$rs=as.numeric(pops_shuan$rs.1st.brood)+as.numeric(pops_shuan$rs.2nd.brood)
+
+#Ci1 is stupid Excel date
+
 #Are all names matching now?
 #What names are missing/mismatched?
 data.frame(TOI=toi,
        not_in_pop8=toi_names_match(df=pops_8),
        not_in_asia=toi_names_match(df=pops_asia),
        not_in_mor=toi_names_match(df=pops_mor),
-       not_in_egypt=toi_names_match(df=pops_egy)
+       not_in_egypt=toi_names_match(df=pops_egy),
+       not_in_shuan=toi_names_match(pops_shuan)
        )
 #YES
 
@@ -211,17 +224,23 @@ NA_outliers(pops_mor[,toi],id = "band")
 NA_outliers(pops_egy[,toi],id = "band",ignore=c("date","year","ci1","rs", "population","sex"))
 #pops_egy Good
 
+#pops_shuan
+NA_outliers(pops_shuan[,toi],id="band")
+
 #Everything looks good!
 
 
 # Combine data ------------------------------------------------------------
 pops_egy$band <- as.character(pops_egy$band)
 pops_mor$band <- as.character(pops_mor$band)
+pops_shuan$band<-as.character(pops_shuan$band)
 pops_8$year <- as.character(pops_8$year)
 pops_8$date<-as.character(pops_8$date)
-allpops<-bind_rows(pops_8[,toi],pops_asia[,toi],pops_mor[,toi],pops_egy[,toi])
+pops_shuan$date<-as.character(pops_shuan$date)
+pops_shuan$year<-as.character(pops_shuan$year)
+allpops<-bind_rows(pops_8[,toi],pops_asia[,toi],pops_mor[,toi],pops_egy[,toi],pops_shuan[,toi])
 
-#76 Populations!!!
+#77 Populations!!!
 allpops$population %>% unique() %>% length()
 
 
