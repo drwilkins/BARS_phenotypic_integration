@@ -195,7 +195,7 @@ ggsave("figs/Fig 1.alternate PINT ~ breast + throat chroma.png",dpi=300,width=13
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
   ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
-  xlab("Throat | Average Population Darkness (Average Brightness)")+
+  xlab("Throat | Average Population Darkness (Avg. Brightness)")+
   ylab("Phenotypic Integration (PINT)")
 )
 
@@ -213,7 +213,7 @@ ggsave("figs/Fig 1.alternate PINT ~ breast + throat chroma.png",dpi=300,width=13
     ) + 
     facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
     ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
-    xlab("Breast | Average Population Darkness (Chroma)")+
+    xlab("Breast | Average Population Darkness (Avg. Brightness)")+
     ylab("Phenotypic Integration (PINT)")
 )
 
