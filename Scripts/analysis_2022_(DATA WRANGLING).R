@@ -297,7 +297,9 @@ allpops_semifinal <- allpops_nearlyfinal %>% mutate(population=recode(tolower(po
                                                                       "cincer_erdene_tsenher"="cincer.mandel.som")) 
   
 #add in lat long for most
-allpops_final<-left_join(allpops_semifinal,meta[,c("population","lat","long","zone","gps","gbs_band")],by="population")
+lat_long_info<-meta[,c("population","lat","long")] %>% filter(!duplicated(population))
+
+allpops_final<-left_join(allpops_semifinal,lat_long_info,by="population" )
 allpops_final$lat[which(allpops_final$population=="morocco")]<-mean(unique(pops_mor0$lat))
 allpops_final$long[which(allpops_final$population=="morocco")]<-mean(unique(pops_mor0$long))
 
