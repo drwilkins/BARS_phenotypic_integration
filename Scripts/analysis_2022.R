@@ -1,5 +1,5 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr)
 # install_github("nathanhaigh/pcit@v1.6.0")#not on CRAN at the moment (also seems to be broken)
 
 #Import all data
@@ -392,4 +392,62 @@ for (i in 1: length(female_pops)){
 }
 dev.off()
 
+
+# Looking at selection  ---------------------------------------------------
+
+#define function to scale,plot, and test linear relationship for a trait
+selection<-function(df,pop,year, which_sex,rawtrait,rawfitmetric){ 
+  require(ggplot2)
+  #remove incomplete rows
+  dataset<-df %>% dplyr::filter(population==pop,year==year,sex %in% which_sex,complete.cases(rawtrait),complete.cases(rawfitmetric))
+  trait.Z<-dataset[,rawtrait] %>% scale() %>% as.vector()
+  fit<-dataset[,rawfitmetric]%>% unlist()
+  relfit<-fit/mean(fit,na.rm=T) 
+  
+  newdata<-tibble(X=trait.Z,Y=relfit)
+  model<-lm(relfit~trait.Z+I(trait.Z^2)) #Is this right? Should differential include squared term?
+  summ<-summary(model)
+
+  fitplot <-
+    ggplot(newdata, aes(x = X, y = Y))+
+    geom_smooth(method = "loess", col ="black") + 
+    geom_point() + 
+    theme_bw() + 
+    ggtitle(pop) +
+    theme(
+      plot.title = element_text(face = "bold", size = 18),
+      axis.text = element_text(size = 18, face = "plain"),
+      axis.title = element_text(size = 18)
+    ) + xlab(rawtrait) +
+    ylab("Rel CI")
+  fitplot
+  s=coef(summ)[2,1]
+  se=coef(summ)[2,2]
+  g=2*coef(summ)[3,1]#These are supposed to be doubled (Stinchcombe Evolution 2008)
+  se2=2*coef(summ)[3,2]#These are supposed to be doubled
+  t.val=coef(summ)[2,3]
+  t.val2=coef(summ)[3,3]
+  p.val=coef(summ)[2,4]
+  p.val2=coef(summ)[3,4]
+  stats<-data.frame(
+    population = pop,
+    sex=paste(which_sex,collapse="+"),
+    Trait = rawtrait,
+    FitMetric = rawfitmetric,
+    s,
+    se,
+    t.val,
+    p.val,
+    g,
+    se2,
+    t.val2,
+    p.val2
+  )
+  output<-list(fitplot,stats)
+  names(output)<-c("fitplot","stats")
+  return(output)
+}
+
+selection(d,"colorado",2013,c("M"),"r.chrom", "rs")
+selection(d,"colorado",2013,c("M"),"r.chrom", "ci1")
 

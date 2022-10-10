@@ -217,6 +217,11 @@ pops_8 <-  pops_8 %>% filter(!(t.chrom>1|b.chrom>1|r.chrom>1|v.chrom>1))
 #test again...should be empty tibble
  pops_8 %>% filter(t.chrom>1|b.chrom>1|r.chrom>1|v.chrom>1)
 #OK, fixed.
+#
+#Last thing..there's a couple birds with insanely  high chroma (>.9)
+pops_8%>% select(b.chrom,sex,band) %>% filter(b.chrom>.6) 
+
+pops_8<-pops_8 %>% filter(b.chrom<0.9,r.chrom<0.9)
 
 #pops_asia
 NA_outliers(pops_asia[,toi],id = "band",ignore=c("date","year","ci1","rs", "population","sex"))
