@@ -72,6 +72,7 @@ pops_8 <-
     b.avg.bright = b.avg.brightness,
     r.avg.bright = r.avg.brightness,
     v.avg.bright = v.avg.brightness) %>% 
+  rowwise() %>% 
   mutate(tail.mean = mean(c(mlts, mrts), na.rm = TRUE)) #add tail.mean
 
 pops_asia <-
