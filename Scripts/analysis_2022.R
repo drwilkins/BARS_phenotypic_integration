@@ -180,8 +180,8 @@ cor.test(subset(integ,sex=="M")$mean.r.chrom,
 #   facet_wrap(~sex)
 
 # ggplot(integ, aes(x=latitude, y=pint)) +
-#   geom_point()+
-#   facet_wrap(~sex)
+#    geom_point()+
+#    facet_wrap(~sex)
 
 cor.test(subset(integ,sex=="F")$latitude,
          subset(integ,sex=="F")$pint,method = "spearman")
