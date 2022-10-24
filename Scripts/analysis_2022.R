@@ -63,7 +63,10 @@ pint_females=sapply(pint_list_females, function(x) x[[1]])
 pint_males=sapply(pint_list_males, function(x) x[[1]])
 
 #Make data frame for main figure (with throat and breast chroma and network density)
-integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright"),mean,na.rm=TRUE) %>% arrange(sex,population) %>% rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom,mean.t.avg.bright=t.avg.bright,mean.r.chrom=r.chrom,mean.r.avg.bright=r.avg.bright)
+integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright", "lat"),mean,na.rm=TRUE) %>% 
+  arrange(sex,population) %>% 
+  rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom,mean.t.avg.bright=t.avg.bright,mean.r.chrom=r.chrom,mean.r.avg.bright=r.avg.bright, latitude=lat)
+
 integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
 integ0$pint <- c(pint_females, pint_males)
 integ <- integ0 %>% arrange(sex,desc(network_density))
@@ -166,6 +169,26 @@ cor.test(subset(integ,sex=="F")$mean.r.chrom,
 cor.test(subset(integ,sex=="M")$mean.r.chrom,
          subset(integ,sex=="M")$pint,method = "spearman")
 
+## Quick Figures: Latitude by breast
+
+#ggplot(integ, aes(x=latitude, y=mean.r.chrom)) +
+  geom_point() +
+  facet_wrap(~sex)
+
+#ggplot(integ, aes(x=latitude, y=mean.t.chrom)) +
+  geom_point()+
+  facet_wrap(~sex)
+
+#ggplot(integ, aes(x=latitude, y=pint)) +
+  geom_point()+
+  facet_wrap(~sex)
+
+cor.test(subset(integ,sex=="F")$latitude,
+         subset(integ,sex=="F")$pint,method = "spearman")
+
+cor.test(subset(integ,sex=="M")$latitude,
+         subset(integ,sex=="M")$pint,method = "spearman")
+####
 
 # Output Fig 1.  Darker birds have denser color networks (for R, but not T) --------
 
@@ -454,3 +477,5 @@ unique(ds$population)
 selection(d,"ithaca",2009,c("M"),"r.chrom", "rs")
 selection(d,"colorado",2009,c("M"),"r.chrom", "ci1")
 
+selection(d,"colorado",2013,c("M"),"t.chrom", "rs")
+selection(d,"colorado",2013,c("M"),"t.chrom", "ci1")
