@@ -171,17 +171,17 @@ cor.test(subset(integ,sex=="M")$mean.r.chrom,
 
 ## Quick Figures: Latitude by breast
 
-#ggplot(integ, aes(x=latitude, y=mean.r.chrom)) +
-  geom_point() +
-  facet_wrap(~sex)
+# ggplot(integ, aes(x=latitude, y=mean.r.chrom)) +
+#   geom_point() +
+#   facet_wrap(~sex)
 
-#ggplot(integ, aes(x=latitude, y=mean.t.chrom)) +
-  geom_point()+
-  facet_wrap(~sex)
+# ggplot(integ, aes(x=latitude, y=mean.t.chrom)) +
+#   geom_point()+
+#   facet_wrap(~sex)
 
-#ggplot(integ, aes(x=latitude, y=pint)) +
-  geom_point()+
-  facet_wrap(~sex)
+# ggplot(integ, aes(x=latitude, y=pint)) +
+#    geom_point()+
+#    facet_wrap(~sex)
 
 cor.test(subset(integ,sex=="F")$latitude,
          subset(integ,sex=="F")$pint,method = "spearman")
