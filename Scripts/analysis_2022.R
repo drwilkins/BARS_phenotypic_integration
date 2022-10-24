@@ -1,6 +1,6 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr)
-# install_github("nathanhaigh/pcit@v1.6.0")#not on CRAN at the moment (also seems to be broken)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply)
+
 
 #Import all data
 d0<-read_csv("Data/all_populations.csv")
@@ -479,3 +479,123 @@ selection(d,"colorado",2009,c("M"),"r.chrom", "ci1")
 
 selection(d,"colorado",2013,c("M"),"t.chrom", "rs")
 selection(d,"colorado",2013,c("M"),"t.chrom", "ci1")
+
+
+# Looking at Dimorphism ---------------------------------------------------
+# Code from Wilkins et al. "Analysis of female song provides insight..." AnBeh 2020
+
+##### Bootstrap correlation estimates to get confidence intervals
+dimorphCal <- function(split, columns) {
+  require(tidyr)
+  require(dplyr)
+  #split= split list from rsample::samples(); 
+  #columns= columns you want to calculate differences from
+  
+  if (is.data.frame(split)) {
+    d <- split
+  } else{
+    d <- analysis(split)
+  }
+  if (length(columns) == 1) {
+    sd.f = sd(unlist(d[which(d$sex == "F" |
+                               d$sex == "f"), columns]), na.rm =
+                T)
+    sd.m = sd(unlist(d[which(d$sex == "M" |
+                               d$sex == "m"), columns]), na.rm = T)
+    pooledSD <- sqrt((sd.f ^ 2 + sd.m ^ 2) / 2)
+  } else{
+     pooledSD <-apply(d[, columns], 2, function(x)
+    {
+      sd.f = sd(x[which(d$sex == "F" | d$sex == "f")], na.rm = T)
+      sd.m = sd(x[which(d$sex == "M" | d$sex == "m")], na.rm = T)
+      sqrt((sd.f ^ 2 + sd.m ^ 2) / 2)
+    })
+  }
+  
+  dfmeans <-
+    as_tibble(d[, c("sex", columns)]) %>%  group_by(sex) %>% summarize_if(is.numeric, mean, na.rm =
+                                                                            T)
+  (dfmeans[which(tolower(dfmeans$sex) == "f"),-1] - dfmeans[which(tolower(dfmeans$sex) ==
+                                                           "m"),-1]) / pooledSD
+  
+}
+
+#SETUP
+set.seed(99)
+#populations to iterate over
+d
+
+populations<-unique(d$population)
+#bootstraps
+bootn<-1000
+#Bootstrap dichromatism
+#Time Consuming
+message("Bootstrapping populations ",bootn," times & calculating dichromatism across populations.")
+bootDC0<-pbapply::pblapply(1:length(populations),function(i){
+                      #cols to carry to output
+                      keep=c("population","country","lat","long")
+                      
+                      d_i<-subset(d,population==populations[i])
+                      years<-paste(unique(d_i$year),collapse=", ")
+                      boots <- bootstraps(d_i,bootn,strata=c("sex"))
+                      boot_diffs <- lapply(boots$splits,dimorphCal,columns=traits_col) %>% 
+                        dplyr::bind_rows()
+                      boot_means<-boot_diffs %>% 
+                        dplyr::summarise_all(mean,na.rm=TRUE)%>% 
+                        dplyr::rename_with(~paste0("DC_",.))
+                      out<-dplyr::tibble(d_i[1,keep],years=years,n_boot=nrow(boots),boot_means)
+}) %>% dplyr::bind_rows() 
+#Bootstrap trait dimorphism (F-M)/SDpooled
+bootDC0
+
+pint_info<-tidyr::pivot_wider(integ %>% dplyr::select(population, sex,pint,mean.r.chrom) ,
+                   names_from= sex,
+                   names_glue="{sex}_{.value}",
+                   values_from= c(pint,mean.r.chrom),
+                   id_cols = population)
+#Add in PI for M & F
+bootDC<-bootDC0 %>% left_join(.,pint_info)
+
+#Want to plot Dichromatism against Phenotypic Integration in M & F
+# Expect high dichromatism to correlate with phenotypic integration
+# 
+# PLOT Phenotypic Integration against dichromatism for all populations
+g_m<-bootDC %>% ggplot(aes(x=DC_r.chrom,y=M_pint)) +
+  geom_point()+ 
+  stat_ellipse()+
+  ggrepel::geom_label_repel(aes(label=population))+
+  labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"<--Darker Males")),
+       y=expression(bold("Phenotypic Integration of All Ventral Color Traits")),title="Males")
+
+g_f <- bootDC %>% ggplot(aes(x=DC_r.chrom,y=F_pint)) +
+  geom_point()+ 
+  stat_ellipse()+
+  ggrepel::geom_label_repel(aes(label=population))+
+    labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"<--Darker Males")),
+       y="",title="Females")
+
+#################################
+#Output Combined Plot
+g_m+g_f  
+ggsave("figs/Fig 4. Phenotypic Integration ~ Dichromatism in Breast Chroma.png")
+# This figure shows average Pint for both sexes (not bootstrapped currently...) plotted against Dichromatism of Breast Chroma. 
+#################################
+
+
+#Testing whether Lower breast dichromatism (>breast chroma in males) correlates with higher phenotypic integration...
+cor.test(bootDC$DC_r.chrom,bootDC$M_pint,method = "s") #nonsignificant nonparametric test
+cor.test(bootDC$DC_r.chrom,bootDC$M_pint,method = "p") #significant parametric correlation
+#Very nonsignificant for females (both types of test)
+cor.test(bootDC$DC_r.chrom,bootDC$F_pint,method = "s")
+cor.test(bootDC$DC_r.chrom,bootDC$F_pint,method = "p")
+
+# #What about looking at average dichromatism across all patches?
+#  --this is flawed b/c directionality of Avg.Brightness vs Chroma should be accounted for
+#  
+# bootDC2 <- bootDC %>% dplyr::group_by(population) %>%  
+#   dplyr::mutate(mean_DC=rowMeans(dplyr::across(dplyr::starts_with("DC_"))))
+# 
+# bootDC2 %>% ggplot(aes(x=mean_DC,y=M_pint)) +
+#   geom_point()+ 
+#   stat_ellipse()+
+#   ggrepel::geom_label_repel(aes(label=population))
