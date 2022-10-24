@@ -17,7 +17,7 @@ traits_col <- traits[-c(1)]
 #Let's say 20 is our minimium number of each sex
 min_samples<-12
 pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
-nrow(pops_w_min_samples) #29 populations with at least 12 individuals
+nrow(pops_w_min_samples) #28 populations with at least 12 individuals
 d<-d0 %>% filter(population %in% pops_w_min_samples$population)
 nrow(d)
 d$population<-as.factor(d$population)
@@ -396,7 +396,7 @@ dev.off()
 # Looking at selection  ---------------------------------------------------
 
 #define function to scale,plot, and test linear relationship for a trait
-selection<-function(df,pop,year, which_sex,rawtrait,rawfitmetric){ 
+selection<-function(df,pop,year=NULL, which_sex,rawtrait,rawfitmetric){ 
   require(ggplot2)
   #remove incomplete rows
   dataset<-df %>% dplyr::filter(population==pop,year==year,sex %in% which_sex,complete.cases(rawtrait),complete.cases(rawfitmetric))
@@ -448,6 +448,9 @@ selection<-function(df,pop,year, which_sex,rawtrait,rawfitmetric){
   return(output)
 }
 
-selection(d,"colorado",2013,c("M"),"r.chrom", "rs")
-selection(d,"colorado",2013,c("M"),"r.chrom", "ci1")
+ds<-d %>% filter(complete.cases(ci1))
+unique(ds$population)
+
+selection(d,"ithaca",2009,c("M"),"r.chrom", "rs")
+selection(d,"colorado",2009,c("M"),"r.chrom", "ci1")
 
