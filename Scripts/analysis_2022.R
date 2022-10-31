@@ -14,7 +14,7 @@ traits_col <- traits[-c(1)]
 #limit analysis to pops with at least N samples
 (pop_summary<-d0 %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame())
 
-#Let's say 20 is our minimium number of each sex
+#Let's say 20 is our minimum number of each sex
 min_samples<-12
 pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
 nrow(pops_w_min_samples) #28 populations with at least 12 individuals
@@ -23,6 +23,10 @@ nrow(d)
 d$population<-as.factor(d$population)
 d$sex<-as.factor(d$sex)
 
+#Let's only work with Colorado samples from 2008 (before many experiments)
+d<-d %>% filter(population!="colorado"|population=="colorado"&year==2008)
+#Now CO has a more comparable N to other pops
+d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
 
 #####################
 #####################
