@@ -1,0 +1,68 @@
+location,hybrid_zone,population
+"Baotou, China",no,baotu
+"Beijing, China",no,beijing
+"Changchun, China",no,changchun
+"Changsha, China",no,changsha
+"Chernaevka, Russia",no,chernaevka
+"Boulder Co., CO, USA",no,colorado
+"Cornwall, UK",no,cornwall
+"Luznice, Czech Rep.",no,czech rep
+"Daktuy, Russia",no,daktuy
+"Dunhuang, China",no,dunhuang
+"Durgun, Mongolia",no,durgun
+"Damietta, Egypt",no,egypt
+"Gaotai, China",no,gaotai
+"Golmud, China",no,golmud
+"Hainan, China",no,hainan
+"Harbin, China",no,harbin
+"Hokkaido, Japan",no,hokkaido
+"Amiad, Israel",no,israel
+"Jiuquan, China",no,jiuquan
+"Karasuk, Russia",no,karasuk
+"Khovd, Mongolia",no,khovd
+"Krasnoyarsk, Russia",no,krasnoyarsk
+"Kundor, Russia",no,kundor
+"Lanzhou, China",yes,lanzhou
+"Magelevka, Russia",no,magelevka
+"Malamolevo, Russia",no,malamolevo
+"Mogocha, Russia",no,mogocha
+"Marrakesh, Morocco",no,morocco
+"Moscow, Russia",no,moscow
+"Nanning, China",no,nanning
+"Narasun, Russia",no,narasun
+"Tompkins Co., NY, USA",no,ithaca
+"Nikolaevska, Russia",no,nikolaevska
+"Qinhuangdao, China",no,qinhuangdao
+"Qiqihar, China",no,qiqihar
+"Richnoy, Russia",no,richnoy
+"Cojocna, Romania",no,romania
+"Santmorgaz, Mongolia",no,santmorgaz
+"Shenyang, China",no,shenyang
+"Shuangyashan, China",no,shuangyashan
+Taiwan,no,taiwan
+"Tataurova, Russia",no,tataurova
+"Tokyo, Japan",no,tokyo
+"Tsetserleg, Mongolia",no,tsetserleg
+"Boğazkent, Turkey",no,turkey
+"Umigan, Russia",no,umigan
+"Urgamal, Mongolia",no,urgamal
+"Urumqi, China",no,urumqi
+"Vozhaevka, Russia",no,vozhaevka
+"Wuwei, China",yes,wuwei
+"Xian, China",no,xian
+"Yekaterinburg, Russia",no,yekaterinburg
+"Yinchaun, China",no,yinchaun
+"Yumen, China",no,yumen
+"Zakaltoosem, Russia",no,zakaltoose
+"Zhengzhou, China",no,zhengzhou
+"Naryn-Talacha, Russia",no,narin.talacha
+"Berh, Mongolia",yes,berh
+"Chinggis, Mongolia",yes,chingis
+"Dashbalbar, Mongolia",yes,dashbalbar
+"Dashinchilin, Mongolia",yes,dashinchilin
+"Kharkhonh, Mongolia",yes,kharkhonh
+"Norovlin, Mongolia",yes,norovlin
+"Ugii Lake, Mongolia",yes,ugii.lake
+"Zhangye, China",yes,zhangye
+"Zuunmod, Mongolia",yes,zuunmod
+NA,yes,bayan.ovoo.bridge

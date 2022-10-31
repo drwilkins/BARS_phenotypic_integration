@@ -306,6 +306,8 @@ allpops_semifinal <- allpops_nearlyfinal %>% mutate(population=recode(tolower(po
 lat_long_info<-meta[,c("population","lat","long")] %>% filter(!duplicated(population))
 
 allpops_final<-left_join(allpops_semifinal,lat_long_info,by="population" )
+
+#Averaged lat and long for Morocco
 allpops_final$lat[which(allpops_final$population=="morocco")]<-mean(unique(pops_mor0$lat))
 allpops_final$long[which(allpops_final$population=="morocco")]<-mean(unique(pops_mor0$long))
 
@@ -338,7 +340,10 @@ allpops_final %>% filter(is.na(lat)) %>% group_by(population) %>% summarize(n=n(
 
 #just the hybrid zones are missing lat long
 
+#Finally, add a preferred location name for populations
+namez<-read_csv("Data/location<->population_key.csv")
+
 # Output combined data ----------------------------------------------------
 
-write_csv(allpops_final,"Data/all_populations.csv")
+write_csv(left_join(allpops_final,namez),"Data/all_populations.csv")
 

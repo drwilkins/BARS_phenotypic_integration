@@ -515,8 +515,7 @@ dimorphCal <- function(split, columns) {
   dfmeans <-
     as_tibble(d[, c("sex", columns)]) %>%  group_by(sex) %>% summarize_if(is.numeric, mean, na.rm =
                                                                             T)
-  (dfmeans[which(tolower(dfmeans$sex) == "f"),-1] - dfmeans[which(tolower(dfmeans$sex) ==
-                                                           "m"),-1]) / pooledSD
+  (dfmeans[which(tolower(dfmeans$sex) == "f"),-1] - dfmeans[which(tolower(dfmeans$sex) == "m"),-1]) / pooledSD
   
 }
 
@@ -543,7 +542,11 @@ bootDC0<-pbapply::pblapply(1:length(populations),function(i){
                       boot_means<-boot_diffs %>% 
                         dplyr::summarise_all(mean,na.rm=TRUE)%>% 
                         dplyr::rename_with(~paste0("DC_",.))
-                      out<-dplyr::tibble(d_i[1,keep],years=years,n_boot=nrow(boots),boot_means)
+                      out<-dplyr::tibble(d_i[1, keep], 
+                                         years = years, 
+                                         n_boot = nrow(boots), 
+                                         m_samples_per_boot=min_samples,
+                                         boot_means)
 }) %>% dplyr::bind_rows() 
 #Bootstrap trait dimorphism (F-M)/SDpooled
 bootDC0
