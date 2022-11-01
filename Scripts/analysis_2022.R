@@ -51,7 +51,7 @@ dimorphCal <- function(df, columns,strata_var="sex",strata_levels=c("f","m"),kee
 #   4. Calculates averages for traits specified in 'columns' within each bootstrap sample
 #   5. Calculates the corrected phenotypic integration (PINT.c) value using PHENIX::pint()
 #   6. Calculates dichromatism (or dimorphism) for traits specified in 'columns' and sex defined by 'strata' using dimorphCal()
-#   7. Calculates correlations between of 'cor_type' (default = "p"; passed to cor()):
+#   7. Calculates correlations of 'cor_type' (default = "p"; passed to cor()) between:
 #       a. (PI) and trait mean for "toi"
 #       b. (PI) and dichromatism across trait(s) in 'toi'
 #   NOTES:
@@ -394,7 +394,7 @@ res_no_hyb <-boot_analy(
   df = d %>% filter(hybrid_zone=="no"),
   columns = traits_col,
   toi = c("r.chrom", "t.chrom"),
-  boot_n = 100,
+  boot_n = 1000,
   strata_levels = c("F", "M"),
   keep_cols = c("location", "lat", "long")
 )
