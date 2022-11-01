@@ -1,5 +1,7 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply,parallel)
+remotes::install_github("galacticpolymath/galacticEdTools")
+require(galacticEdTools)
 
 
 # Function Definitions -----------------------------------------------------
@@ -9,125 +11,346 @@ p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork
 
 #df= a data frame/tibble 
 #columns= columns you want to calculate sex differences on
+#strata_var= column of binary categories (default="sex)
+#strata_levels= case-insensitive 2 levels of strata, ordered Female first (default=c("f","m"))
 
-dimorphCal <- function(df, columns) {
-  if (length(columns) == 1) {
-    sd.f = sd(unlist(d[which(d$sex == "F" |
-                               d$sex == "f"), columns]), na.rm =
-                T)
-    sd.m = sd(unlist(d[which(d$sex == "M" |
-                               d$sex == "m"), columns]), na.rm = T)
-    pooledSD <- sqrt((sd.f ^ 2 + sd.m ^ 2) / 2)
-  } else{
-    pooledSD <- apply(d[, columns], 2, function(x)
+dimorphCal <- function(df, columns,strata_var="sex",strata_levels=c("f","m"),keep_cols=NULL) {
+    #make case-insensitive levels for filtering
+    stratum1<-c(toupper(strata_levels[1]),tolower(strata_levels[1]))
+    stratum2<-c(toupper(strata_levels[2]),tolower(strata_levels[2]))
+    
+    #Calculate pooled standard deviations for all traits & strata_levels
+    pooledSD <- sapply(1:length(columns), function(i)
     {
-      sd.f = sd(x[which(d$sex == "F" | d$sex == "f")], na.rm = T)
-      sd.m = sd(x[which(d$sex == "M" | d$sex == "m")], na.rm = T)
-      sqrt((sd.f ^ 2 + sd.m ^ 2) / 2)
+      df_i<-df[,c({{strata_var}}, columns[i])]
+      sd.f =df_i %>% dplyr::filter(eval(as.symbol(strata_var))%in%stratum1) %>% summarize_if(is.double,sd,na.rm=T) 
+      sd.m = df_i %>% dplyr::filter(eval(as.symbol(strata_var))%in%stratum2) %>% summarize_if(is.double,sd,na.rm=T) 
+      sqrt((sd.f[columns[i]] ^ 2 + sd.m[columns[i]] ^ 2) / 2)
     })
-  }
   
-  dfmeans <-
-    as_tibble(d[, c("sex", columns)]) %>%  group_by(sex) %>% summarize_if(is.numeric, mean, na.rm =
-                                                                            T)
-  (dfmeans[which(tolower(dfmeans$sex) == "f"), -1] - dfmeans[which(tolower(dfmeans$sex) == "m"), -1]) / pooledSD
+  dfmeans <-as_tibble(df) %>% dplyr::select(strata_var,columns,keep_cols) %>% 
+    group_by(!!!syms(strata_var),!!!syms(keep_cols)) %>% 
+    summarize_if(is.double, mean, na.rm =T)
   
+  diffs<-(dfmeans[which(unlist(dfmeans[,strata_var]) %in% stratum1), columns] - 
+      dfmeans[which(unlist(dfmeans[,strata_var]) %in% stratum2), columns]) / pooledSD
+  #output combined info w/ keep_cols if supplied
+  tibble(dfmeans[1,keep_cols],diffs)
+    
 }
 
 # PRIMARY ANALYSIS
 # Does the following:
 #   1. Runs analysis over the traits specified by 'columns', with IDs in 'id'
 #   2. Iterates this whole procedure over iterate_over column (default="population")
-#   3. Bootstraps data 'boot_n' times (default=1e4), balancing sample sizes over 'strata' (default="sex")
+#   3. Bootstraps data 'boot_n' times (default=1e4), balancing sample sizes over 'strata_var' (default="sex")
+#       *'strata_levels'= case-insensitive 2 levels of strata, 
+#                         ordered Female first (default=c("f","m"))      
+#     ** Bootstraps are parallelized, change cores with the 'cor_num' parameter. 
+#        default: cor_num=parallel::detectCores()-1
 #   4. Calculates averages for traits specified in 'columns' within each bootstrap sample
-#   5. Calculates phenotypic integration (PI) sensu Wagner (1984) using PHENIX::pint()
+#   5. Calculates the corrected phenotypic integration (PINT.c) value using PHENIX::pint()
 #   6. Calculates dichromatism (or dimorphism) for traits specified in 'columns' and sex defined by 'strata' using dimorphCal()
-#   7. Calculates Spearman and Pearson correlations between:
-#       a. (PI) and trait mean
-#       b. (PI) and dichromatism
-#   8. Optional: Runs the whole analysis with and without meeting a specific condition, kinda like a jackknife for
-#                'jk_subset' parameter (default=NULL) (e.g. jk_subset= 'hybrid_zone=="no"' outer single quotes needed)
+#   7. Calculates correlations between of 'cor_type' (default = "p"; passed to cor()):
+#       a. (PI) and trait mean for "toi"
+#       b. (PI) and dichromatism across trait(s) in 'toi'
+#   NOTES:
+#   *   'keep_cols' refers to columns you want to keep in your outputs
+#   **  'seed' is set to 99 by default, allowing for repeatable bootstrap results.
 #   
-boot_analy<-function(df=NULL,
-                     columns=NULL,
-                     boot_n=1e4,
-                     strata_var="sex",
-                     id_col="band",
-                     iterate_over="population",
-                     jk_subset= NULL){
-  set.seed(99) #to make this repeatable
-  if(is.null(df)){
+#   
+boot_analy <- function(df = NULL,
+                       columns = NULL,
+                       toi = "r.chrom",
+                       boot_n = 1000,
+                       strata_var = "sex",
+                       strata_levels = c("f", "m"),
+                       id_col = "band",
+                       keep_cols=NULL,
+                       iterate_over = "population",
+                       cor_type = "p",
+                       seed = 99,
+                       cor_num=parallel::detectCores()-1) {
+  
+  set.seed(seed) #to make this repeatable
+  if (is.null(df)) {
     message("must input your data as the 'df' parameter")
   }
-  if(is.null(columns)){
+  if (is.null(columns)) {
     message("specify what columns you want to analyze (i.e. traits to measure dichromatism for)")
   }
+  #make case-insensitive levels for filtering
+  stratum1 <- c(toupper(strata_levels[1]), tolower(strata_levels[1]))
+  stratum2 <- c(toupper(strata_levels[2]), tolower(strata_levels[2]))
+ 
+  #And test just as an extra precaution
+  sum_levels_match_expected<-sum(unlist(unique(df[,substitute(strata_var)])) %in% strata_levels)
   
-  #Construct vector of conditions for pre-analysis filtering (Output will have All data, then with specified
-  #filtering if any...I want to do this to see how hybrid zones affect results)
-  
-  filter_conditions<-c("{}",jk_subset)
-  #Big for loop for 2 first level analysis subsets
-  for (j in 1:length(filter_conditions)) {
-    message("\n### ANALYSIS ",j," of ",length(filter_conditions)," ###\n")
-    filter_cond_j <- filter_conditions[j]
-    #We want to filter nothing for the first analysis ({}), otherwise, construct a filter condition
-    #to pass through pipes
-    filter_cmd <-
-      ifelse(filter_cond_j == "{}",
-             "df %>% {}",
-             paste0("df %>% filter(", filter_cond_j, ")"))
-    
-    #This is the filtered data (before bootstrapping)
-    d <- eval(parse(text = filter_cmd))
-    
-    #Get a vector of unique entries to iterate over
-    uniques<-unique(d[,iterate_over]) %>% na.omit() %>% unlist() %>% as.vector()
-    
-    pbapply::pblapply(1:length(uniques),function(i){
-      subgroup<-uniques[i]
-      message("\n# Analyzing ",iterate_over," ",i," of ",length(uniques),": '",subgroup,"'\n")
-      # Get the subgroup (i.e. subset with population==x)
-      d_i<-d %>% dplyr::filter(eval(as.symbol(iterate_over))==subgroup)
-      
-      #Now do bootstrapping with each subgroup_i, stratified by 'strata' 
-      boots<-rsample::bootstraps(d_i,boot_n,strata=strata_var)
-      
-      #ANALYZE each bootstrap
-      cols_of_interest<-
-      boot_results<-lapply(boots$splits,function(x_ii){
-        boot_ii<-x_ii%>% 
-          rsample::analysis() %>% 
-          select(!!!id_col,!!!strata_var,!!!iterate_over,!!!columns) %>%  #we want the value of these vars
-          group_by_at(strata_var)#man this escaping w/ !!! vs _at distinction is annoying!
-        trait_means_ii<-boot_ii  %>% 
-          dplyr::summarise(across(where(is.double),mean,na.rm=TRUE)) 
-          # dplyr::rename_with(~paste0("avg_",.))
-        sex_diffs<-dimorphCal(boot_ii,columns)
-        strata_levels<-unique(boot_ii[,strata_var]) %>% unlist() %>% as.vector()
-        
-        #Calculate PI flexibly across strata (i.e. if levels or sex are spelled/named differently)
-        PI <- lapply(strata_levels, function(stratum) {
-          boot_ii_stratum <- boot_ii %>%
-            dplyr::filter(eval(as.symbol(strata_var)) == stratum) %>% ungroup %>%  select_if(is.double)
-          PI_ii <- PHENIX::pint(na.omit(boot_ii_stratum))
-          dplyr::tibble({{strata_var}} := stratum, 
-                        N = PI_ii$N, 
-                        PINT = PI_ii$PINT, 
-                        PINT.c = PI_ii$PINT.c)
-        }) %>% dplyr::bind_rows()
-      })
-      
-    })
+  if(sum_levels_match_expected!=2){
+    stop("Levels don't match. Make sure strata_levels=c(val1,val2), found in your data frame.")
   }
+  
+  #Get a vector of unique entries to iterate over
+  uniques <-
+    unique(df[, iterate_over]) %>% na.omit() %>% unlist() %>% as.vector()
+  
+  
+  # Iterate analysis over all populations/subgroups -------------------------
+  all_subgroups <- pbapply::pblapply(1:length(uniques), function(i) {
+    subgroup <- uniques[i]
+    message("\n\n# Analyzing ",
+            iterate_over,
+            " ",
+            i,
+            " of ",
+            length(uniques),
+            ": '",
+            subgroup,
+            "'")
+    # Get the subgroup (i.e. subset with population==x)
+    d_i <-
+      df %>% dplyr::filter(eval(as.symbol(iterate_over)) == subgroup)
+    
+    #Now do bootstrapping with each subgroup_i, stratified by 'strata'
+    boots <- rsample::bootstraps(d_i, boot_n, strata = strata_var)
+    
+    #######
+    # ANALYZE each bootstrap, within population i -----------------------------
+    message("   Bootstrap Progress")
+    boot_results <- pbapply::pblapply(1:length(boots$splits),cl = parallel::detectCores()-1,FUN= function(ii) {
+      
+      boot_ii <- boots$splits[[ii]] %>%
+        rsample::analysis() %>%
+        select(all_of(id_col),all_of(strata_var),all_of(iterate_over),all_of(columns),all_of(keep_cols)) %>%  #we want the value of these vars
+        group_by(!!sym(strata_var))#man this escaping w/ !! vs {{ }} distinction is annoying!
+      
+      # A) Trait Means
+      trait_means_ii <- boot_ii  %>% 
+        dplyr::summarise(across(where(is.double), mean, na.rm = TRUE)) %>%
+        dplyr::rename_with(~ paste0("avg_", .), where(is.double))
+      #preserve keep_cols
+      if(!is.null(keep_cols)){
+        trait_means_ii <- bind_cols(boot_ii[1:2,keep_cols],trait_means_ii)
+      }
+      
+      # B) Sex Differences in Traits
+      
+      sex_diffs_ii <-
+        dimorphCal(boot_ii,
+                   columns,
+                   strata_var = strata_var,
+                   strata_levels = strata_levels,
+                   keep_cols=keep_cols)%>% 
+        rename_with(~paste0("SD_",.),all_of(columns))
+      
+      
+      # C) Phenotypic Integration across all traits
+      PI_ii <- lapply(strata_levels, function(stratum) {
+        
+        boot_ii_stratum <- boot_ii %>%
+          dplyr::filter(eval(as.symbol(strata_var)) == stratum) %>% ungroup %>%  select(columns)
+        
+        PI_ii <- PHENIX::pint(na.omit(boot_ii_stratum))
+        dplyr::tibble({
+          {
+            strata_var
+          }
+        } := stratum,
+        N_PINT = PI_ii$N,
+        PINT = PI_ii$PINT,
+        PINT.c = PI_ii$PINT.c)
+      }) %>% dplyr::bind_rows()
+      
+      
+      # D) Aggregate summary of PI and trait avgs
+      
+      summary_ii <-PI_ii %>% 
+        mutate({{iterate_over}} := subgroup, boot_i = ii) %>%
+        relocate({{iterate_over}}, boot_i) %>%
+        left_join(x = ., y = trait_means_ii, by = {{strata_var}})
+      # E) Return summary data
+      list(
+        summary = summary_ii,
+        sex_diffs = as_tibble(sex_diffs_ii) %>% mutate({
+          {
+            iterate_over
+          }
+        } := subgroup, boot_i = ii) %>%
+          relocate({
+            {
+              iterate_over
+            }
+          }, boot_i)
+      )
+      
+    })  # End bootstraps within population_i
+    
+    #Combine sex diffs and summary table across all
+    boot_summ <-
+      lapply(boot_results, function(x)
+        x$summary) %>% bind_rows()
+    boot_sex_diffs <-
+      lapply(boot_results, function(x)
+        x$sex_diffs) %>% bind_rows()
+    
+    
+    subgroup_output <- list(boot_summ = boot_summ ,
+                            boot_sex_diffs = boot_sex_diffs)
+    
+    subgroup_output
+    
+  })# End lapply over all populations/subgroups
+  
+  #Organize final output
+  boot_summ_tibble <-
+    lapply(1:length(all_subgroups), function(i) {
+      all_subgroups[[i]]$boot_summ
+    }) %>% bind_rows
+  boot_sex_diffs_tibble <-
+    lapply(1:length(all_subgroups), function(i) {
+      all_subgroups[[i]]$boot_sex_diffs
+    }) %>% bind_rows
+  
+  mean_traits_tibble <- boot_summ_tibble %>% select(-boot_i) %>%
+    group_by(!!sym(iterate_over), !!sym(strata_var),!!!syms(keep_cols)) %>% 
+    summarize_if(is.double, mean, na.rm =TRUE)
+  
+  mean_sex_diffs_tibble <-
+    boot_sex_diffs_tibble %>% select(-boot_i) %>%
+    group_by(!!sym(iterate_over),!!!syms(keep_cols)) %>% 
+    summarize(across(all_of(paste0("SD_",columns)), mean, na.rm=TRUE))
+  
+  #calculate correlations bw phenotypic integration and Trait Means for Trait(s) of Interest
+  cor_trait_avgs_df <- lapply(1:length(toi), function(i) {
+    lapply(1:boot_n, function(j) {
+      #stratum1 is usually going to be female (the first entry in 'strata_levels')
+      df_j1 <-
+        boot_summ_tibble %>% dplyr::filter(boot_i == j &
+                                             eval(as.symbol(strata_var)) %in% stratum1)
+      df_j2 <-
+        boot_summ_tibble %>% dplyr::filter(boot_i == j &
+                                             eval(as.symbol(strata_var)) %in% stratum2)
+      #usually the female correlation
+      #Note, we're using the PINT.c value, which corrects for number of individuals and traits 
+      #for each population
+      cor_1 <-
+        cor(df_j1$PINT.c ,
+            df_j1[, paste0("avg_", toi[i])] %>% unlist(),
+            method = cor_type,
+            use = "complete.obs")
+      #usually the male correlation
+      cor_2 <-
+        cor(df_j2$PINT.c ,
+            df_j2[, paste0("avg_", toi[i])] %>% unlist(),
+            method = cor_type,
+            use = "complete.obs")
+      tibble({
+        {
+          strata_var
+        }
+      } := strata_levels, trait_x1 = "PINT.c", trait_x2 = paste0("avg_", toi[i]), cor =
+        c(cor_1, cor_2))
+    }) %>% bind_rows
+  }) %>% bind_rows
+  
+  #Collapse correlations across bootstrap correlations for trait means
+  #Just temporarily disabling this b/c of a persistent message
+  options(dplyr.summarise.inform = F)
+  cor_trait_avgs_tibble <- cor_trait_avgs_df %>%
+    group_by(!!sym(strata_var), trait_x1, trait_x2) %>% summarize(
+      mean_cor = mean(cor, na.rm = T),
+      ci_low = quantile(
+        cor,
+        probs = .025,
+        na.rm = T,
+        names = F,
+        type = 7
+      ),
+      ci_high = quantile(
+        cor,
+        probs = .975,
+        na.rm = T,
+        names = F,
+        type = 7
+      )
+    ) %>% arrange(trait_x2)
+  
+  
+  #Calculate correlations between phenotypic integration and sex difference in toi(s)
+  cor_sex_diff_df <- lapply(1:length(toi), function(i) {
+    lapply(1:boot_n, function(j) {
+      #stratum1 is usually going to be female (the first entry in 'strata_levels')
+      sex_diff_j <-
+        boot_sex_diffs_tibble %>% dplyr::filter(boot_i == j)
+      df_j1 <-
+        boot_summ_tibble %>% dplyr::filter(boot_i == j &
+                                             eval(as.symbol(strata_var)) %in% stratum1)
+      df_j2 <-
+        boot_summ_tibble %>% dplyr::filter(boot_i == j &
+                                             eval(as.symbol(strata_var)) %in% stratum2)
+      #usually the female correlation
+      cor_1 <- cor(sex_diff_j[, paste0("SD_",toi[i])] %>% unlist() ,
+                   df_j1$PINT.c,
+                   method = cor_type,
+                   use = "complete.obs")
+      #usually the male correlation
+      cor_2 <- cor(sex_diff_j[,paste0("SD_",toi[i])] %>% unlist() ,
+                   df_j2$PINT.c,
+                   method = cor_type,
+                   use = "complete.obs")
+      tibble({
+        {
+          strata_var
+        }
+      } := strata_levels, trait_x1 = "PINT.c", trait_x2 = paste0("sex_diff_", toi[i]), cor =
+        c(cor_1, cor_2))
+    }) %>% bind_rows
+  }) %>% bind_rows
+  
+  #Collapse correlations across bootstrap correlations for trait means
+  cor_trait_sex_diff_tibble <- cor_sex_diff_df %>%
+    group_by(!!sym(strata_var), trait_x1, trait_x2) %>%
+    summarize(
+      mean_cor = mean(cor, na.rm = T),
+      ci_low = quantile(
+        cor,
+        probs = .025,
+        na.rm = T,
+        names = F,
+        type = 7
+      ),
+      ci_high = quantile(
+        cor,
+        probs = .975,
+        na.rm = T,
+        names = F,
+        type = 7
+      )
+    ) %>%
+    arrange(trait_x2)
+  options(dplyr.summarise.inform = T)#turn messaging back on
+  
+  message(":) ALL DONE!\n")
+  SUMMARY <- list(
+    boot_n= boot_n,
+    boot_summ = boot_summ_tibble,
+    boot_sex_diffs = boot_sex_diffs_tibble,
+    mean_traits = mean_traits_tibble,
+    mean_sex_diffs = mean_sex_diffs_tibble,
+    cor_pint_x_avg_trait = cor_trait_avgs_tibble,
+    cor_pint_x_sex_diff = cor_trait_sex_diff_tibble
+  )
+  
+  
+}
     
   
 
-}
 
 
 
-# Setup -------------------------------------------------------------------
+
+# 1. Setup -------------------------------------------------------------------
 #Import all data
 d0<-read_csv("Data/all_populations.csv")
 nrow(d0)
@@ -153,581 +376,93 @@ d<-d %>% filter(population!="colorado"|population=="colorado"&year==2008)
 #Now CO has a more comparable N to other pops
 d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
 
-#####################
-#####################
-# 1. Test `Network Density ~ Mean Darkness` across pops 
-# Calculate population-level stats ----------------------------------------
-#Male data subset by population
-data_list_males<-lapply(levels(d$population),function(x) (subset(d,population==x&sex=="M")))
-names(data_list_males)<-levels(d$population)
 
-#Female data subset by population
-data_list_females<-lapply(levels(d$population),function(x) (subset(d,population==x&sex=="F")))
-names(data_list_females)<-levels(d$population)
+# 2.  Analyze -------------------------------------------------------------
+# 
 
-#Male correlations by population
-corr_list_males<-lapply(names(data_list_males), function(x) cor(as.matrix(data_list_males[[x]][,traits_col]),method="s",use="pairwise.complete"))
-names(corr_list_males)<-levels(d$population)
+res <- boot_analy(
+  df = d,
+  columns = traits_col,
+  toi = c("r.avg.bright","r.chrom","b.chrom","b.avg.bright", "t.chrom"),
+  boot_n = 1000,
+  strata_var="sex",
+  strata_levels = c("F", "M"),
+  keep_cols = c("location", "lat", "long")
+)
 
-#Female correlations by population
-corr_list_females<-lapply(names(data_list_females), function(x) cor(as.matrix(data_list_females[[x]][,traits_col]),method="s",use="pairwise.complete"))
-names(corr_list_females)<-levels(d$population)
+res_no_hyb <-boot_analy(
+  df = d %>% filter(hybrid_zone=="no"),
+  columns = traits_col,
+  toi = c("r.chrom", "t.chrom"),
+  boot_n = 100,
+  strata_levels = c("F", "M"),
+  keep_cols = c("location", "lat", "long")
+)
 
 
-pop_netdensity_females <- sapply(corr_list_females,function(x) sum(abs(x[upper.tri(x)]))/sum(upper.tri(x)))
 
-pop_netdensity_males <- sapply(corr_list_males,function(x) sum(abs(x[upper.tri(x)]))/sum(upper.tri(x)))
+# 3. Graph ----------------------------------------------------------------------
 
-pint_list_females=lapply(data_list_females, function(x){
-  tb=na.omit(x[,traits_col])
-  PINT=pint(tb)
-})
+# Fig 1. Graph of Phenotypic Integration ~ Avg. Color for Breast and Throat -----
 
-pint_list_males=lapply(data_list_males, function(x){
-  tb=na.omit(x[,traits_col])
-  PINT=pint(tb)
-})
-
-pint_females=sapply(pint_list_females, function(x) x[[1]])
-pint_males=sapply(pint_list_males, function(x) x[[1]])
-
-#Make data frame for main figure (with throat and breast chroma and network density)
-integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright", "lat"),mean,na.rm=TRUE) %>% 
-  arrange(sex,population) %>% 
-  rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom,mean.t.avg.bright=t.avg.bright,mean.r.chrom=r.chrom,mean.r.avg.bright=r.avg.bright, latitude=lat)
-
-integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
-integ0$pint <- c(pint_females, pint_males)
-integ <- integ0 %>% arrange(sex,desc(network_density))
-
-#throat patch graph
-G_t<-ggplot(integ,
-       aes(x = mean.t.chrom, y = network_density, fill = mean.t.chrom)) + 
-  stat_ellipse() +
-  geom_point(size=3,pch=21,col="black") +
-  scale_fill_gradient(
-    limits = range(integ$mean.t.chrom),
-    low = "#FFFFCC",
-    high = "#CC6600",
-    guide = "none"
-  ) + 
-  facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-  ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
-  xlab("Throat | Average Population Darkness (Chroma)")+
-  ylab("Network Density")
-#nonsignificant relationship with THROAT darkness & network density for both sexes
-cor.test(subset(integ,sex=="F")$mean.t.chrom,
-         subset(integ,sex=="F")$network_density,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$mean.t.chrom,
-         subset(integ,sex=="M")$network_density,method = "spearman")
-                  
-                
+mytheme<-galacticEdTools::theme_galactic(
+     base.theme = "linedraw",
+     grid.wt.maj = .1,
+     grid.wt.min = 0,
+     grid.col = "gray70",
+    text.cex = 0.7,
+    pad.outer = rep(5,4)
+   )+theme(strip.text = element_text(size=12))
 
 #breast patch graph
-(G_r<-ggplot(integ,
-       aes(x = mean.r.chrom, y = network_density, fill = mean.r.chrom)) + 
-  stat_ellipse() +
+(G_r<-res$mean_traits %>%  
+      ggplot(aes(x = avg_r.chrom, y = PINT.c, fill = avg_r.chrom)) +
+  stat_ellipse(col="gray60",size=.5) +
+  mytheme+
   geom_point(size=3,pch=21,col="black") +
   scale_fill_gradient(
-    limits = range(integ$mean.r.chrom),
+    limits = range(res$mean_traits$avg_r.chrom),
     low = "#FFFFCC",
     high = "#CC6600",
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-  ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,box.padding = 0.8,segment.size=.25,force = 8,min.segment.length = .2)+
   xlab("Breast | Average Population Darkness (Chroma)")+
-  ylab("Network Density")
+  ylab("Phenotypic Integration")
   )
 
 #throat patch graph with PINT (Wagner 1984 method for phenotypic integration)
-(G_t_pint<-ggplot(integ,
-            aes(x = mean.t.chrom, y = pint, fill = mean.t.chrom)) + 
-  stat_ellipse() +
+(G_t<-res$mean_traits %>%  
+      ggplot(aes(x = avg_t.chrom, y = PINT.c, fill = avg_t.chrom)) +
+  mytheme+
+  stat_ellipse(col="gray60",size=.5)+
   geom_point(size=3,pch=21,col="black") +
   scale_fill_gradient(
-    limits = range(integ$mean.t.chrom),
+    limits = range(res$mean_traits$avg_t.chrom),
     low = "#FFFFCC",
     high = "#CC6600",
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-  ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,box.padding = 0.8,segment.size=.25,force = 8,min.segment.length = .2)+
   xlab("Throat | Average Population Darkness (Chroma)")+
-  ylab("Phenotypic Integration (PINT)")
-)
-
-
-#breast patch graph with PINT
-(G_r_pint<-ggplot(integ,
-             aes(x = mean.r.chrom, y = pint, fill = mean.r.chrom)) + 
-    stat_ellipse() +
-    geom_point(size=3,pch=21,col="black") +
-    scale_fill_gradient(
-      limits = range(integ$mean.r.chrom),
-      low = "#FFFFCC",
-      high = "#CC6600",
-      guide = "none"
-    ) + 
-    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
-    xlab("Breast | Average Population Darkness (Chroma)")+
-    ylab("Phenotypic Integration (PINT)")
-)
-
-#nonsignificant relationship with THROAT darkness & network density for both sexes
-cor.test(subset(integ,sex=="F")$mean.t.chrom,
-         subset(integ,sex=="F")$network_density,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$mean.t.chrom,
-         subset(integ,sex=="M")$network_density,method = "spearman")
-
-
-#Significant relationship with BREAST darkness & network density for both sexes
-cor.test(subset(integ,sex=="F")$mean.r.chrom,
-         subset(integ,sex=="F")$network_density,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$mean.r.chrom,
-         subset(integ,sex=="M")$network_density,method = "spearman")
-
-# same with PINT -- stronger correlations
-cor.test(subset(integ,sex=="F")$mean.r.chrom,
-         subset(integ,sex=="F")$pint,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$mean.r.chrom,
-         subset(integ,sex=="M")$pint,method = "spearman")
-
-## Quick Figures: Latitude by breast
-
-# ggplot(integ, aes(x=latitude, y=mean.r.chrom)) +
-#   geom_point() +
-#   facet_wrap(~sex)
-
-# ggplot(integ, aes(x=latitude, y=mean.t.chrom)) +
-#   geom_point()+
-#   facet_wrap(~sex)
-
-# ggplot(integ, aes(x=latitude, y=pint)) +
-#    geom_point()+
-#    facet_wrap(~sex)
-
-cor.test(subset(integ,sex=="F")$latitude,
-         subset(integ,sex=="F")$pint,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$latitude,
-         subset(integ,sex=="M")$pint,method = "spearman")
-####
-
-# Output Fig 1.  Darker birds have denser color networks (for R, but not T) --------
+  ylab("Phenotypic Integration")
+  )
 
 #patchwork syntax
 (G_combined<-G_t/G_r)
-ggsave("figs/Fig 1. network density ~ breast + throat chroma.png",dpi=300)
-
-(G_combined<-G_t_pint/G_r_pint)
-ggsave("figs/Fig 1.alternate PINT ~ breast + throat chroma.png",dpi=300,width=13,height=10,units="in")
+ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
 
 
-#Pretty interesting that Egypt has such a low network density for its darkness. 
-
-
-
-# Make SuppMat 1 (Phen Integ ~ Avg. Bright instead of Chrom) --------------
-#throat patch graph with PINT (Wagner 1984 method for phenotypic integration)
-(G_t_pint2<-ggplot(integ,
-            aes(x = mean.t.avg.bright, y = pint, fill = mean.t.avg.bright)) + 
-  stat_ellipse() +
-  geom_point(size=3,pch=21,col="black") +
-  scale_fill_gradient(
-    limits = range(integ$mean.t.avg.bright),
-    low = "#CC6600",
-    high = "#FFFFCC",
-    guide = "none"
-  ) + 
+# Fig.  2. Graph of PINT ~ Sex Difference in Breast Chroma ----------------
+res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
+  ggplot(aes(x=SD_r.chrom,y=PINT.c))+
+  mytheme+
+  stat_ellipse(col="gray60",size=.5)+
+  geom_point()+
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-  ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
-  xlab("Throat | Average Population Darkness (Avg. Brightness)")+
-  ylab("Phenotypic Integration (PINT)")
-)
-
-
-#breast patch graph with PINT
-(G_r_pint2<-ggplot(integ,
-             aes(x = mean.r.avg.bright, y = pint, fill = mean.r.avg.bright)) + 
-    stat_ellipse() +
-    geom_point(size=3,pch=21,col="black") +
-    scale_fill_gradient(
-      limits = range(integ$mean.r.avg.bright),
-      low = "#CC6600",
-      high = "#FFFFCC",
-      guide = "none"
-    ) + 
-    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
-    xlab("Breast | Average Population Darkness (Avg. Brightness)")+
-    ylab("Phenotypic Integration (PINT)")
-)
-
-#nonsignificant relationship with THROAT darkness & network pint for both sexes
-cor.test(subset(integ,sex=="F")$mean.t.avg.bright,
-         subset(integ,sex=="F")$pint,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$mean.t.avg.bright,
-         subset(integ,sex=="M")$pint,method = "spearman")
-
-
-#Significant relationship with BREAST darkness & network density for both sexes
-cor.test(subset(integ,sex=="F")$mean.r.avg.bright,
-         subset(integ,sex=="F")$network_density,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$mean.r.avg.bright,
-         subset(integ,sex=="M")$network_density,method = "spearman")
-
-# same with PINT -- stronger correlations
-cor.test(subset(integ,sex=="F")$mean.r.avg.bright,
-         subset(integ,sex=="F")$pint,method = "spearman")
-
-cor.test(subset(integ,sex=="M")$mean.r.avg.bright,
-         subset(integ,sex=="M")$pint,method = "spearman")
-
-
-# Output Fig S1.  Darker birds have denser color networks (for R, but not T) --------
-(G_combined2<-G_t_pint2/G_r_pint2)
-ggsave("figs/Fig S1. PINT ~ breast + throat avg brightness.png",dpi=300,width=13,height=10,units="in")
-
-
-
-
-
-#make interactive version
-G_r_inxn<-ggplot(integ,
-       aes(x = mean.r.chrom, y = network_density, fill = mean.r.chrom)) + 
-  stat_ellipse() +
-  geom_point_interactive(size=3,pch=21,col="black",aes(tooltip=glue("Population: {population}\nBreast Chroma: {round(mean.r.chrom,2)}\nNetwork Density: {round(network_density,2)}"),data_id=population)) +
-  scale_fill_gradient(
-    limits = range(integ$mean.r.chrom),
-    low = "#FFFFCC",
-    high = "#CC6600",
-    guide = "none"
-  ) + facet_wrap(~sex,labeller =as_labeller(c(M="Males",F="Females") ),ncol = 1)+
-  ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
-  xlab("Population Mean Breast Darkness (Chroma)")+
-  ylab("Network Density")
-
-htmlwidgets::saveWidget(ggiraph::girafe(ggobj=G_r_inxn),file = "figs/interactive_Fig1_network density~ throat chroma.html",selfcontained = TRUE)
-
-
-#####################
-#####################
-# 2. Visualize phenotype networks for sampling of populations
-
-#which populations have > 30 indivs sampled for both M & F?
-min_samples_big<-15
-pop_summary %>% filter(n_F>=min_samples_big & n_M>=min_samples_big)
-
-#Define populations you want to include in phenonet figures
-pops_of_interest<-c("CO","TA","TU","IS","UK","Morocco","Egypt","yekaterinburg","zakaltoose","zhangye")
-
-#Make a handy function to order the vector of populations by network density
-order_pops_by_net_density<-function(integ_df,pops,which_sex){
-  new_df<-integ_df %>% filter(sex==which_sex,population%in% pops) %>% 
-    arrange(network_density)
-  new_df$population
-}
-male_pops<-order_pops_by_net_density(integ,pops_of_interest,"M")
-female_pops<-order_pops_by_net_density(integ,pops_of_interest,"F")
-
-#just a check cuz the spelling is all over the place on these names
-if(sum(is.na(poi_ordered))>0){warning("Name mismatch. One of your pops_of_interest not matched to 'integ' df.")}
-
-
-#Define f(x) for subsetting data & getting filtered correlation matrix
-get_pop_cormat <- function(pop,which_sex,traits){
-   d_cor<- d %>% 
-  filter(population==pop & sex==which_sex) %>% 
-  select(traits_col) %>% 
-   cor(.,use="pairwise.complete",method = "spear")
-  d_cor[diag(d_cor)]<-NA
-  
-  #Filter algorithm
-  # Here, simply ≥|0.3|
-  d_cor_bad_indx<-which(abs(d_cor)<0.3)
-  d_cor[d_cor_bad_indx]<-0
-  
-  d_cor
-}
-
-# output Fig 2 & 3. -----------------------------------------------------------
-###Setup
-#Get means for traits in each population for each sex
-rawmeansM<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="M") %>% summarise_at(traits_col,mean,na.rm=T)
-
-rawmeansF<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
-
-# Function Definitions ----------------------------------------------------
-####>>>>>>>>>>>>>>>>>>>>>
-## Make custom plot function
-Q<-function(COR,lab.col,lab.scale,lab.font,lay,...){
-  if(missing(lab.col)){lab.col="black"}
-  if(missing(lab.scale)){lab.scale=T}
-  if(missing(lab.font)){lab.font=2}
-  if(missing(lay)){lay="spring"}
-  G<-qgraph(COR,diag=F,fade=F,label.color=lab.col,label.font=lab.font,label.scale=lab.scale,label.norm="0000",mar=c(4,7,7,4),...)
-return(G)}
-#<<<<<<<<<<<<<<<
-#
-
-### Generate male networks figure
-png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-par(mfrow=c(2,5),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
-
-#Calculate quantiles for each population's color values to color nodes
-  scalar<-sapply(names(rawmeansM)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM[,x]),q=50 ))) 
-  #make 50 quantiles for matching color scores
-  rownames(scalar)<-rawmeansM$population
-  scalar[,c(1:2,4:5,7:8,10:11)] <-51- scalar[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
-  #define color ramp with 50 gradations
-  nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
-
-for (i in 1: length(male_pops)){
-  cur_pop<-male_pops[i]
-  mat<-get_pop_cormat(cur_pop,"M",traits_col)
-  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
- # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
-  Q(mat,color=nodecolor,border.color="gray20",labels=toi3,shape=shps,posCol="#181923",negCol=1,vsize=20,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout="circle",rescale=TRUE)
-  
-  mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
-
-    #Add bounding rectangle for Egypt
-  if(cur_pop=="Egypt"){
-    box(which="figure",lwd=3)
-    #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
-  }
-  
-
-  
-}
-dev.off()
-
-################
-### Generate female networks figure
-png("figs/Fig 3. Female_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-par(mfrow=c(2,5),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
-
-#Calculate quantiles for each population's color values to color nodes
-  scalar<-sapply(names(rawmeansF)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansF[,x]),q=50 ))) 
-  #make 50 quantiles for matching color scores
-  rownames(scalar)<-rawmeansF$population
-  scalar[,c(1:2,4:5,7:8,10:11)] <-51- scalar[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
-  #define color ramp with 50 gradations
-  nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
-
-for (i in 1: length(female_pops)){
-  cur_pop<-female_pops[i]
-  print(i)
-  mat<-get_pop_cormat(cur_pop,"F",traits_col)
-  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
-
-  Q(mat,color=nodecolor,border.color="gray20",labels=toi3,shape=shps,posCol="#181923",negCol=1,vsize=20,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,lay="circle",rescale=TRUE)
-  
-  mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
-
-    #Add bounding rectangle for Egypt
-  if(cur_pop=="Egypt"){
-    box(which="figure",lwd=3)
-    #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
-  }
-  
-
-  
-}
-dev.off()
-
-
-# Looking at selection  ---------------------------------------------------
-
-#define function to scale,plot, and test linear relationship for a trait
-selection<-function(df,pop,year=NULL, which_sex,rawtrait,rawfitmetric){ 
-  require(ggplot2)
-  #remove incomplete rows
-  dataset<-df %>% dplyr::filter(population==pop,year==year,sex %in% which_sex,complete.cases(rawtrait),complete.cases(rawfitmetric))
-  trait.Z<-dataset[,rawtrait] %>% scale() %>% as.vector()
-  fit<-dataset[,rawfitmetric]%>% unlist()
-  relfit<-fit/mean(fit,na.rm=T) 
-  
-  newdata<-tibble(X=trait.Z,Y=relfit)
-  model<-lm(relfit~trait.Z+I(trait.Z^2)) #Is this right? Should differential include squared term?
-  summ<-summary(model)
-
-  fitplot <-
-    ggplot(newdata, aes(x = X, y = Y))+
-    geom_smooth(method = "loess", col ="black") + 
-    geom_point() + 
-    theme_bw() + 
-    ggtitle(pop) +
-    theme(
-      plot.title = element_text(face = "bold", size = 18),
-      axis.text = element_text(size = 18, face = "plain"),
-      axis.title = element_text(size = 18)
-    ) + xlab(rawtrait) +
-    ylab("Rel CI")
-  fitplot
-  s=coef(summ)[2,1]
-  se=coef(summ)[2,2]
-  g=2*coef(summ)[3,1]#These are supposed to be doubled (Stinchcombe Evolution 2008)
-  se2=2*coef(summ)[3,2]#These are supposed to be doubled
-  t.val=coef(summ)[2,3]
-  t.val2=coef(summ)[3,3]
-  p.val=coef(summ)[2,4]
-  p.val2=coef(summ)[3,4]
-  stats<-data.frame(
-    population = pop,
-    sex=paste(which_sex,collapse="+"),
-    Trait = rawtrait,
-    FitMetric = rawfitmetric,
-    s,
-    se,
-    t.val,
-    p.val,
-    g,
-    se2,
-    t.val2,
-    p.val2
-  )
-  output<-list(fitplot,stats)
-  names(output)<-c("fitplot","stats")
-  return(output)
-}
-
-ds<-d %>% filter(complete.cases(ci1))
-unique(ds$population)
-
-selection(d,"ithaca",2009,c("M"),"r.chrom", "rs")
-selection(d,"colorado",2009,c("M"),"r.chrom", "ci1")
-
-selection(d,"colorado",2013,c("M"),"t.chrom", "rs")
-selection(d,"colorado",2013,c("M"),"t.chrom", "ci1")
-
-
-# Looking at Dimorphism ---------------------------------------------------
-# Code from Wilkins et al. "Analysis of female song provides insight..." AnBeh 2020
-
-##### Bootstrap correlation estimates to get confidence intervals
-dimorphCal <- function(split, columns) {
-  require(tidyr)
-  require(dplyr)
-  #split= split list from rsample::samples(); 
-  #columns= columns you want to calculate differences from
-  
-  if (is.data.frame(split)) {
-    d <- split
-  } else{
-    d <- analysis(split)
-  }
-  if (length(columns) == 1) {
-    sd.f = sd(unlist(d[which(d$sex == "F" |
-                               d$sex == "f"), columns]), na.rm =
-                T)
-    sd.m = sd(unlist(d[which(d$sex == "M" |
-                               d$sex == "m"), columns]), na.rm = T)
-    pooledSD <- sqrt((sd.f ^ 2 + sd.m ^ 2) / 2)
-  } else{
-     pooledSD <-apply(d[, columns], 2, function(x)
-    {
-      sd.f = sd(x[which(d$sex == "F" | d$sex == "f")], na.rm = T)
-      sd.m = sd(x[which(d$sex == "M" | d$sex == "m")], na.rm = T)
-      sqrt((sd.f ^ 2 + sd.m ^ 2) / 2)
-    })
-  }
-  
-  dfmeans <-
-    as_tibble(d[, c("sex", columns)]) %>%  group_by(sex) %>% summarize_if(is.numeric, mean, na.rm =
-                                                                            T)
-  (dfmeans[which(tolower(dfmeans$sex) == "f"),-1] - dfmeans[which(tolower(dfmeans$sex) == "m"),-1]) / pooledSD
-  
-}
-
-#SETUP
-set.seed(99)
-#populations to iterate over
-d
-
-populations<-unique(d$population)
-#bootstraps
-bootn<-1000
-#Bootstrap dichromatism
-#Time Consuming
-message("Bootstrapping populations ",bootn," times & calculating dichromatism across populations.")
-bootDC0<-pbapply::pblapply(1:length(populations),function(i){
-                      #cols to carry to output
-                      keep=c("population","country","lat","long")
-                      
-                      d_i<-subset(d,population==populations[i])
-                      years<-paste(unique(d_i$year),collapse=", ")
-                      boots <- bootstraps(d_i,bootn,strata=c("sex"))
-                      boot_diffs <- lapply(boots$splits,dimorphCal,columns=traits_col) %>% 
-                        dplyr::bind_rows()
-                      boot_means<-boot_diffs %>% 
-                        dplyr::summarise_all(mean,na.rm=TRUE)%>% 
-                        dplyr::rename_with(~paste0("DC_",.))
-                      out<-dplyr::tibble(d_i[1, keep], 
-                                         years = years, 
-                                         n_boot = nrow(boots), 
-                                         m_samples_per_boot=min_samples,
-                                         boot_means)
-}) %>% dplyr::bind_rows() 
-#Bootstrap trait dimorphism (F-M)/SDpooled
-bootDC0
-
-pint_info<-tidyr::pivot_wider(integ %>% dplyr::select(population, sex,pint,mean.r.chrom) ,
-                   names_from= sex,
-                   names_glue="{sex}_{.value}",
-                   values_from= c(pint,mean.r.chrom),
-                   id_cols = population)
-#Add in PI for M & F
-bootDC<-bootDC0 %>% left_join(.,pint_info)
-
-#Want to plot Dichromatism against Phenotypic Integration in M & F
-# Expect high dichromatism to correlate with phenotypic integration
-# 
-# PLOT Phenotypic Integration against dichromatism for all populations
-g_m<-bootDC %>% ggplot(aes(x=DC_r.chrom,y=M_pint)) +
-  geom_point()+ 
-  stat_ellipse()+
-  ggrepel::geom_label_repel(aes(label=population))+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,box.padding = 0.8,segment.size=.25,force = 8,min.segment.length = .2)+
   labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"<--Darker Males")),
-       y=expression(bold("Phenotypic Integration of All Ventral Color Traits")),title="Males")
-
-g_f <- bootDC %>% ggplot(aes(x=DC_r.chrom,y=F_pint)) +
-  geom_point()+ 
-  stat_ellipse()+
-  ggrepel::geom_label_repel(aes(label=population))+
-    labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"<--Darker Males")),
-       y="",title="Females")
-
-#################################
-#Output Combined Plot
-g_m+g_f  
-ggsave("figs/Fig 4. Phenotypic Integration ~ Dichromatism in Breast Chroma.png")
-# This figure shows average Pint for both sexes (not bootstrapped currently...) plotted against Dichromatism of Breast Chroma. 
-#################################
-
-
-#Testing whether Lower breast dichromatism (>breast chroma in males) correlates with higher phenotypic integration...
-cor.test(bootDC$DC_r.chrom,bootDC$M_pint,method = "s") #nonsignificant nonparametric test
-cor.test(bootDC$DC_r.chrom,bootDC$M_pint,method = "p") #significant parametric correlation
-#Very nonsignificant for females (both types of test)
-cor.test(bootDC$DC_r.chrom,bootDC$F_pint,method = "s")
-cor.test(bootDC$DC_r.chrom,bootDC$F_pint,method = "p")
-
-# #What about looking at average dichromatism across all patches?
-#  --this is flawed b/c directionality of Avg.Brightness vs Chroma should be accounted for
-#  
-# bootDC2 <- bootDC %>% dplyr::group_by(population) %>%  
-#   dplyr::mutate(mean_DC=rowMeans(dplyr::across(dplyr::starts_with("DC_"))))
-# 
-# bootDC2 %>% ggplot(aes(x=mean_DC,y=M_pint)) +
-#   geom_point()+ 
-#   stat_ellipse()+
-#   ggrepel::geom_label_repel(aes(label=population))
+       y=expression(bold("Phenotypic Integration of All Ventral Color Traits")))
+ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png")

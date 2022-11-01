@@ -341,7 +341,7 @@ allpops_final %>% filter(is.na(lat)) %>% group_by(population) %>% summarize(n=n(
 #just the hybrid zones are missing lat long
 
 #Finally, add a preferred location name for populations
-namez<-read_csv("Data/location<->population_key.csv")
+namez<-readxl::read_excel("Data/location<->population_key.xlsx",sheet=1)
 
 # Output combined data ----------------------------------------------------
 
