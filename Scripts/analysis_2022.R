@@ -28,7 +28,7 @@ dimorphCal <- function(df, columns,strata_var="sex",strata_levels=c("f","m"),kee
       sqrt((sd.f[columns[i]] ^ 2 + sd.m[columns[i]] ^ 2) / 2)
     })
   
-  dfmeans <-as_tibble(df) %>% dplyr::select(strata_var,columns,keep_cols) %>% 
+  dfmeans <-as_tibble(df) %>% dplyr::select(all_of(c(strata_var,columns,keep_cols))) %>% 
     group_by(!!!syms(strata_var),!!!syms(keep_cols)) %>% 
     summarize_if(is.double, mean, na.rm =T)
   
@@ -121,7 +121,7 @@ boot_analy <- function(df = NULL,
       
       boot_ii <- boots$splits[[ii]] %>%
         rsample::analysis() %>%
-        select(all_of(id_col),all_of(strata_var),all_of(iterate_over),all_of(columns),all_of(keep_cols)) %>%  #we want the value of these vars
+        select(all_of(c(id_col,strata_var,iterate_over,columns,keep_cols))) %>%  #we want the value of these vars
         group_by(!!sym(strata_var))#man this escaping w/ !! vs {{ }} distinction is annoying!
       
       # A) Trait Means
@@ -148,7 +148,7 @@ boot_analy <- function(df = NULL,
       PI_ii <- lapply(strata_levels, function(stratum) {
         
         boot_ii_stratum <- boot_ii %>%
-          dplyr::filter(eval(as.symbol(strata_var)) == stratum) %>% ungroup %>%  select(columns)
+          dplyr::filter(eval(as.symbol(strata_var)) == stratum) %>% ungroup %>%  select(all_of(columns))
         
         PI_ii <- PHENIX::pint(na.omit(boot_ii_stratum))
         dplyr::tibble({
@@ -384,21 +384,23 @@ res <- boot_analy(
   df = d,
   columns = traits_col,
   toi = c("r.avg.bright","r.chrom","b.chrom","b.avg.bright", "t.chrom"),
-  boot_n = 1000,
+  boot_n = 1e4,
   strata_var="sex",
   strata_levels = c("F", "M"),
   keep_cols = c("location", "lat", "long")
 )
+#results
+res
 
-res_no_hyb <-boot_analy(
-  df = d %>% filter(hybrid_zone=="no"),
-  columns = traits_col,
-  toi = c("r.chrom", "t.chrom"),
-  boot_n = 1000,
-  strata_levels = c("F", "M"),
-  keep_cols = c("location", "lat", "long")
-)
-
+# res_no_hyb <-boot_analy(
+#   df = d %>% filter(hybrid_zone=="no"),
+#   columns = traits_col,
+#   toi = c("r.chrom", "t.chrom"),
+#   boot_n = 1000,
+#   strata_levels = c("F", "M"),
+#   keep_cols = c("location", "lat", "long")
+# )
+# 
 
 
 # 3. Graph ----------------------------------------------------------------------
@@ -456,7 +458,7 @@ ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
 
 
 # Fig.  2. Graph of PINT ~ Sex Difference in Breast Chroma ----------------
-res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
+res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(all_of(c(population,SD_r.chrom)))) %>% 
   ggplot(aes(x=SD_r.chrom,y=PINT.c))+
   mytheme+
   stat_ellipse(col="gray60",size=.5)+
@@ -464,5 +466,6 @@ res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.c
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
     ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,box.padding = 0.8,segment.size=.25,force = 8,min.segment.length = .2)+
   labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"<--Darker Males")),
-       y=expression(bold("Phenotypic Integration of All Ventral Color Traits")))
+       y=expression(bold("Phenotypic Integration")))
 ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png")
+
