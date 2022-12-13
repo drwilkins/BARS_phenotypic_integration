@@ -418,10 +418,10 @@ mytheme<-galacticEdTools::theme_galactic(
 
 #breast patch graph
 (G_r<-res$mean_traits %>%  
-      ggplot(aes(x = avg_r.chrom, y = PINT.c, fill = avg_r.chrom)) +
+      ggplot(aes(x = avg_r.chrom, y = PINT.c)) +
   stat_ellipse(col="gray60",size=.5) +
   mytheme+
-  geom_point(size=3,pch=21,col="black") +
+  geom_point(size=3,pch=21,col="black", aes(fill = avg_r.chrom)) +
   scale_fill_gradient(
     limits = range(res$mean_traits$avg_r.chrom),
     low = "#FFFFCC",
@@ -429,17 +429,19 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,box.padding = 0.8,segment.size=.25,force = 8,min.segment.length = .2)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.9,seed = 100)+
   xlab("Breast | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
 
 #throat patch graph with PINT (Wagner 1984 method for phenotypic integration)
 (G_t<-res$mean_traits %>%  
-      ggplot(aes(x = avg_t.chrom, y = PINT.c, fill = avg_t.chrom)) +
+    group_by(sex) %>% 
+      ggplot(aes(x = avg_t.chrom, y = PINT.c,
+                 group=sex)) +
   mytheme+
   stat_ellipse(col="gray60",size=.5)+
-  geom_point(size=3,pch=21,col="black") +
+  geom_point(size=3,pch=21,col="black", aes(fill = avg_t.chrom)) +
   scale_fill_gradient(
     limits = range(res$mean_traits$avg_t.chrom),
     low = "#FFFFCC",
@@ -447,7 +449,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,box.padding = 0.8,segment.size=.25,force = 8,min.segment.length = .2)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.8,seed = 100)+
   xlab("Throat | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -464,8 +466,8 @@ res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(all_of(c(populati
   stat_ellipse(col="gray60",size=.5)+
   geom_point()+
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,box.padding = 0.8,segment.size=.25,force = 8,min.segment.length = .2)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.8,seed = 100)+
   labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"<--Darker Males")),
        y=expression(bold("Phenotypic Integration")))
-ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png")
+ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",dpi=300,width=8,height=8)
 
