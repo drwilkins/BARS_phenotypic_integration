@@ -380,17 +380,22 @@ d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from
 # 2.  Analyze -------------------------------------------------------------
 # 
 
-res <- boot_analy(
-  df = d,
-  columns = traits_col,
-  toi = c("r.avg.bright","r.chrom","b.chrom","b.avg.bright", "t.chrom"),
-  boot_n = 1e4,
-  strata_var="sex",
-  strata_levels = c("F", "M"),
-  keep_cols = c("location", "lat", "long")
-)
+# VERY Time consuming!
+# Uncomment if you want to run the full 10e4 bootstraps
+
+# res <- boot_analy(
+#   df = d,
+#   columns = traits_col,
+#   toi = c("r.avg.bright","r.chrom","b.chrom","b.avg.bright", "t.chrom"),
+#   boot_n = 1e4,
+#   strata_var="sex",
+#   strata_levels = c("F", "M"),
+#   keep_cols = c("location", "lat", "long")
+# )
+
+#If you have access to our google drive, you can read in the large data file. Not on github.
 #results
-res
+res<-readRDS("results_10k_bootstraps.RDS")
 
 # res_no_hyb <-boot_analy(
 #   df = d %>% filter(hybrid_zone=="no"),
@@ -406,7 +411,7 @@ res
 # 3. Graph ----------------------------------------------------------------------
 
 # Fig 1. Graph of Phenotypic Integration ~ Avg. Color for Breast and Throat -----
-
+showtext::showtext_opts(dpi=300) #important b/c of a bug
 mytheme<-galacticEdTools::theme_galactic(
      base.theme = "linedraw",
      grid.wt.maj = .1,
@@ -429,7 +434,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.9,seed = 100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.9,seed = 100)+
   xlab("Breast | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -449,7 +454,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.8,seed = 100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.8,seed = 100)+
   xlab("Throat | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -460,14 +465,205 @@ ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
 
 
 # Fig.  2. Graph of PINT ~ Sex Difference in Breast Chroma ----------------
-res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(all_of(c(population,SD_r.chrom)))) %>% 
+res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
   ggplot(aes(x=SD_r.chrom,y=PINT.c))+
   mytheme+
   stat_ellipse(col="gray60",size=.5)+
   geom_point()+
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 20,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.8,seed = 100)+
-  labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"<--Darker Males")),
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 14,min.segment.length = 0.1,box.padding = 0.8,seed = 100)+
+  labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"\u2190 Darker Males than Females")),
        y=expression(bold("Phenotypic Integration")))
-ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",dpi=300,width=8,height=8)
+ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",dpi=300,width=8,height=4)
+
+
+# Fig. 3.  Phenotype networks for key populations -------------------------
+
+
+# Function Definitions ----------------------------------------------------
+#Function to calculate raw phenotypic integration (we've only done bootstraps)
+# do each sex separately;
+# traits_of_interest= vector of traits to use to calculate phenotypic integration
+# trait_to_average= which trait to average and output (that you want to compare to phenotypic integration)
+# ordered=logical; should results be ordered descending by phenotypic integration?
+####>>>>>>>>>>>>>>>>>>>>>
+PI_for_pops <-
+  function(d,
+           which_pops,
+           which_sex,
+           traits_of_interest = traits_col,
+           trait_to_average,
+           ordered=TRUE) {
+    d1 <-
+      d %>%
+      dplyr::filter(sex == which_sex, population %in% which_pops)
+    #iterate over target populations for sex==which_sex
+    res <- lapply(which_pops, function(x_i) {
+      d2 <- d1 %>%
+        dplyr::filter(population == x_i) 
+      res_i<-d2%>%
+        dplyr::select(all_of(traits_of_interest)) %>%
+        na.omit() %>%
+        PHENIX::pint()
+      #output tibble
+      dplyr::tibble(
+        sex = which_sex,
+        population = x_i,
+        N_PINT = res_i$N,
+        PINT = res_i$PINT,
+        PINT.c = res_i$PINT.c,
+        "avg_{trait_to_average}":=mean(unlist(d2[,trait_to_average]),na.rm=T)
+      )
+    }) %>% bind_rows()
+    if(ordered){
+    res %>% dplyr::arrange(desc(PINT.c))
+    }else{res}
+    
+  }
+
+#Define f(x) for subsetting data & getting filtered correlation matrix
+get_pop_cormat <- function(pop,which_sex,traits){
+   d_cor<- d %>% 
+  filter(population==pop & sex==which_sex) %>% 
+  select(all_of(traits_col)) %>% 
+   cor(.,use="pairwise.complete",method = "spear")
+  d_cor[diag(d_cor)]<-NA
+  
+  #Filter algorithm
+  # Here, simply ≥|0.3|
+  d_cor_bad_indx<-which(abs(d_cor)<0.3)
+  d_cor[d_cor_bad_indx]<-0
+  
+  d_cor
+}
+
+## Make custom plot function
+Q<-function(COR,
+            ...) {
+  G <-
+    qgraph(
+      COR,
+      mar=rep(3,4),
+      diag = F,
+      fade = F,
+      label.norm = "0000",
+      border.color = "gray20",
+      shape = "triangle",
+      posCol = "#181923",
+      negCol = 1,
+      vsize = 15,
+      label.cex = 1.1,
+      label.font=2,
+      label.scale.equal = T,
+      layout = "circle",
+      rescale=T,
+      aspect=T,
+      ...
+    )
+return(G)}
+#<<<<<<<<<<<<<<<
+#
+
+
+#look at all included populations to figure out which pops to showcase
+  #Males
+  res$mean_traits %>% filter(sex=="M")%>% 
+    arrange(desc(PINT.c)) %>% print(n=56)
+  #Lowest for male= "egypt", but there's something whack going on there (males have extremely low and females extremely high phenotypic integration, which is atypical and possibly from reinforcement), so we'll use Taiwan, Middle= "morocco",High="baotu"
+  
+  # #Females
+  # res$mean_traits %>% filter(sex=="F")%>% 
+  # arrange(desc(PINT.c)) %>% print(n=56)
+  # 
+
+#which ones are we interested in?
+pops_of_interest<-c("baotu","taiwan","morocco")
+
+# Calculate PINT for each pop by sex,
+# ordered by descending PINT.c
+#  --------------------------------------
+
+male_pops <- PI_for_pops(d,pops_of_interest,"M",traits_col,trait_to_average = "r.chrom")
+female_pops <- PI_for_pops(d,pops_of_interest,"F",traits_col,trait_to_average = "r.chrom")
+#order females like males
+female_pops<-female_pops[match(male_pops$population,female_pops$population),]
+
+#short labels for phenonets
+traits_col
+net_labs<-c("TBri","THue","TChr","RBri","RHue","RChr","BBri","BHue","BChr","VBri","VHue","VChr")
+#Get means for traits in each population for each sex
+rawmeansM<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="M") %>% summarise_at(traits_col,mean,na.rm=T)
+
+rawmeansF<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
+
+
+### Generate male networks figure
+png("figs/Fig 3. 6_Networks_ordered.png",width=11,height=6,units="in",res=300)
+par(xpd=T,oma=rep(1,4),ps=18,mar=rep(3,4))
+#create somewhat complex layout to have titles and graphs together
+l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
+# layout.show(l)
+#Calculate quantiles for each population's color values to color nodes
+  scalar<-sapply(names(rawmeansM)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM[,x]),q=50 ))) 
+  #make 50 quantiles for matching color scores
+  rownames(scalar)<-rawmeansM$population
+  scalar[,c(1:2,4:5,7:8,10:11)] <-51- scalar[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
+  #define color ramp with 50 gradations
+  nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
+
+#Plot Male phenonets
+for (i in 1: nrow(male_pops)){
+  cur_pop<-male_pops$population[i]
+  mat<-get_pop_cormat(cur_pop,"M",traits_col)
+  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
+  
+  #Plot info before network
+  plot.new()
+  long_name_i<-d %>% distinct(population,.keep_all = T) %>% 
+              filter(population==cur_pop) %>% select(location) %>% unlist
+  mtext(long_name_i,
+        3,line=.6,at=-1.4,
+        adj=0,col="#181923",cex=.7,font=2)
+  mtext(paste0("Phenotypic Integration: ",
+               male_pops$PINT.c[i]),
+        3,line=-.75,at=-1.4,
+        adj=0,col="#181923",cex=.45,font=1)
+  mtext(paste0("Mean Breast Chroma: ",
+               round(male_pops$avg_r.chrom[i],3)),
+        3,line=-1.75,at=-1.4,
+        adj=0,col="#181923",cex=.45,font=1)
+  
+  Q(mat,color=nodecolor,labels=net_labs)
+  
+  
+}
+  #Plot Female Phenonets
+  for (i in 1: nrow(female_pops)){
+  cur_pop<-female_pops$population[i]
+  mat<-get_pop_cormat(cur_pop,"F",traits_col)
+  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
+ # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
+  #Plot info before network
+  plot.new()
+  long_name_i<-d %>% distinct(population,.keep_all = T) %>% 
+              filter(population==cur_pop) %>% select(location) %>% unlist
+  mtext(long_name_i,
+        3,line=.6,at=-1.4,
+        adj=0,col="#181923",cex=.7,font=2)
+  mtext(paste0("Phenotypic Integration: ",
+               female_pops$PINT.c[i]),
+        3,line=-.75,at=-1.4,
+        adj=0,col="#181923",cex=.45,font=1)
+  mtext(paste0("Mean Breast Chroma: ",
+               round(female_pops$avg_r.chrom[i],3)),
+        3,line=-1.75,at=-1.4,
+        adj=0,col="#181923",cex=.45,font=1)
+  #plot female phenonet
+  Q(mat,color=nodecolor,labels=net_labs)
+ 
+  
+
+  
+}
+dev.off()
 

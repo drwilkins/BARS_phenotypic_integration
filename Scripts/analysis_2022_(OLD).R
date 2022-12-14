@@ -343,11 +343,7 @@ rawmeansF<-d %>% group_by(population) %>% filter(population %in% pops_of_interes
 # Function Definitions ----------------------------------------------------
 ####>>>>>>>>>>>>>>>>>>>>>
 ## Make custom plot function
-Q<-function(COR,lab.col,lab.scale,lab.font,lay,...){
-  if(missing(lab.col)){lab.col="black"}
-  if(missing(lab.scale)){lab.scale=T}
-  if(missing(lab.font)){lab.font=2}
-  if(missing(lay)){lay="spring"}
+Q<-function(COR,lab.col="black",lab.scale=T,lab.font=2,lay="spring",...){
   G<-qgraph(COR,diag=F,fade=F,label.color=lab.col,label.font=lab.font,label.scale=lab.scale,label.norm="0000",mar=c(4,7,7,4),...)
 return(G)}
 #<<<<<<<<<<<<<<<
