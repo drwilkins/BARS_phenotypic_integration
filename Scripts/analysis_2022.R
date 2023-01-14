@@ -667,3 +667,15 @@ for (i in 1: nrow(male_pops)){
 }
 dev.off()
 
+# SuppMat Fig.1 -----------------------------------------------------------
+# Boxplots for breast and throat chroma for all populations
+
+#Get phenotypic integration ranks for populations
+
+d %>% 
+  #Add phenotyp
+  ggplot(aes(x=location,y=r.chrom,fill=sex)) +
+  geom_boxplot()+
+  ylab("Breast Chroma")+xlab("Population")+
+  theme_galactic(text.cex = .8)+
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
