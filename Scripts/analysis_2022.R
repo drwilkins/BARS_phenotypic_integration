@@ -539,25 +539,41 @@ get_pop_cormat <- function(pop,which_sex,traits){
 
 ## Make custom plot function
 Q<-function(COR,
-            ...) {
+            mar = rep(3, 4),
+            diag = F,
+            fade = F,
+            label.norm = "0000",
+            border.color = "gray20",
+            shape = "triangle",
+            posCol = "#181923",
+            negCol = "#181923",
+            vsize = 15,
+            label.cex = 1.1,
+            label.font = 2,
+            label.scale.equal = T,
+            layout = "circle",
+            rescale = T,
+            aspect = T,
+            ...
+) {
   G <-
     qgraph(
       COR,
-      mar=rep(3,4),
-      diag = F,
-      fade = F,
-      label.norm = "0000",
-      border.color = "gray20",
-      shape = "triangle",
-      posCol = "#181923",
-      negCol = 1,
-      vsize = 15,
-      label.cex = 1.1,
-      label.font=2,
-      label.scale.equal = T,
-      layout = "circle",
-      rescale=T,
-      aspect=T,
+      mar=mar,
+      diag = diag,
+      fade = fade,
+      label.norm = label.norm,
+      border.color = border.color,
+      shape = shape,
+      posCol = posCol,
+      negCol = negCol,
+      vsize = vsize,
+      label.cex = label.cex,
+      label.font= label.font,
+      label.scale.equal = label.scale.equal,
+      layout = layout,
+      rescale=rescale,
+      aspect= aspect,
       ...
     )
 return(G)}
@@ -592,9 +608,13 @@ female_pops<-female_pops[match(male_pops$population,female_pops$population),]
 traits_col
 net_labs<-c("TBri","THue","TChr","RBri","RHue","RChr","BBri","BHue","BChr","VBri","VHue","VChr")
 #Get means for traits in each population for each sex
-rawmeansM<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="M") %>% summarise_at(traits_col,mean,na.rm=T)
+rawmeansM_0<-d %>% group_by(population) 
+rawmeansM <- rawmeansM_0 %>% filter(population %in% pops_of_interest,sex=="M") %>% summarise_at(traits_col,mean,na.rm=T)
+rawmeansM_all <- rawmeansM_0 %>% filter(sex=="M") %>% summarise_at(traits_col,mean,na.rm=T)
 
-rawmeansF<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
+rawmeansF_0<-d %>% group_by(population) 
+rawmeansF<-rawmeansF_0%>% filter(population %in% pops_of_interest,sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
+rawmeansF_all<-rawmeansF_0%>% filter(sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
 
 
 ### Generate male networks figure
@@ -603,11 +623,12 @@ par(xpd=T,oma=rep(1,4),ps=18,mar=rep(3,4))
 #create somewhat complex layout to have titles and graphs together
 l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
 # layout.show(l)
-#Calculate quantiles for each population's color values to color nodes
-  scalar<-sapply(names(rawmeansM)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM[,x]),q=50 ))) 
+
+#Calculate quantiles for each trait's relative color intensity across all traits and ALL populations
+  color_ranks<-sapply(names(rawmeansM_all)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM_all[,x]),q=50 ))) 
   #make 50 quantiles for matching color scores
-  rownames(scalar)<-rawmeansM$population
-  scalar[,c(1:2,4:5,7:8,10:11)] <-51- scalar[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
+  rownames(color_ranks)<-rawmeansM_all$population
+  color_ranks[,c(1:2,4:5,7:8,10:11)] <-51- color_ranks[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
   #define color ramp with 50 gradations
   nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
 
@@ -615,7 +636,7 @@ l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7)
 for (i in 1: nrow(male_pops)){
   cur_pop<-male_pops$population[i]
   mat<-get_pop_cormat(cur_pop,"M",traits_col)
-  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
+  nodecolors<-nodepal[color_ranks[as.character(cur_pop),]]
   
   #Plot info before network
   plot.new()
@@ -633,23 +654,36 @@ for (i in 1: nrow(male_pops)){
         3,line=-1.75,at=-1.4,
         adj=0,col="#181923",cex=.45,font=1)
   
-  Q(mat,color=nodecolor,labels=net_labs)
+  if(i==1){
+    mtext("MALES",1, line=1,at=-.5,cex=.45)
+  }
+  Q(mat,color=nodecolors,labels=net_labs)
   
   
 }
+  
   #Plot Female Phenonets
+  #Calculate quantiles for each trait's relative color intensity across all traits and ALL populations
+  color_ranks_F<-sapply(names(rawmeansF_all)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansF_all[,x]),q=50 ))) 
+  #make 50 quantiles for matching color scores
+  rownames(color_ranks_F)<-rawmeansF_all$population
+  color_ranks_F[,c(1:2,4:5,7:8,10:11)] <-51- color_ranks_F[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
+  #define color ramp with 50 gradations
+  nodepal_F<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
+  
   for (i in 1: nrow(female_pops)){
-  cur_pop<-female_pops$population[i]
+  cur_pop_F<-female_pops$population[i]
   mat<-get_pop_cormat(cur_pop,"F",traits_col)
-  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
+  nodecolors_F<-nodepal[color_ranks_F[as.character(cur_pop_F),]]
  # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
   #Plot info before network
   plot.new()
   long_name_i<-d %>% distinct(population,.keep_all = T) %>% 
-              filter(population==cur_pop) %>% select(location) %>% unlist
+              filter(population==cur_pop_F) %>% select(location) %>% unlist
   mtext(long_name_i,
         3,line=.6,at=-1.4,
         adj=0,col="#181923",cex=.7,font=2)
+  
   mtext(paste0("Phenotypic Integration: ",
                female_pops$PINT.c[i]),
         3,line=-.75,at=-1.4,
@@ -658,8 +692,11 @@ for (i in 1: nrow(male_pops)){
                round(female_pops$avg_r.chrom[i],3)),
         3,line=-1.75,at=-1.4,
         adj=0,col="#181923",cex=.45,font=1)
+  if(i==1){
+    mtext("FEMALES",1, line=1,at=-0.5,cex=.45)
+  }
   #plot female phenonet
-  Q(mat,color=nodecolor,labels=net_labs)
+  Q(mat,color=nodecolors,labels=net_labs)
  
   
 
@@ -668,14 +705,48 @@ for (i in 1: nrow(male_pops)){
 dev.off()
 
 # SuppMat Fig.1 -----------------------------------------------------------
-# Boxplots for breast and throat chroma for all populations
+# Boxplots for breast chroma for all populations
 
-#Get phenotypic integration ranks for populations
+#Get phenotypic integration ranks for ALL populations
+phen_M<-PI_for_pops(d,pops_w_min_samples$population,"M",traits_col,trait_to_average = "r.chrom") %>% arrange(desc(PINT.c))
 
-d %>% 
+phen_ranks_M<-phen %>% select(population, PINT, PINT.c) %>% mutate(PINT.c_rank=(rank(-PINT.c,)))
+
+d_phen <- d %>% 
+  #Add phenotype rank data and arrange by that
+  left_join(.,phen_ranks_M, by="population") %>% 
+  arrange(PINT.c_rank)
+
   #Add phenotyp
-  ggplot(aes(x=location,y=r.chrom,fill=sex)) +
+d_phen %>% 
+  ggplot(aes(x=forcats::fct_inorder(location),y=t.chrom,fill=sex)) +
   geom_boxplot()+
   ylab("Breast Chroma")+xlab("Population")+
   theme_galactic(text.cex = .8)+
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+
+#Save Fig S1
+ggsave("figs/Fig S1. Boxplots of breast chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
+
+
+
+  #Add phenotyp
+d_phen %>% 
+  ggplot(aes(x=forcats::fct_inorder(location),y=r.chrom,fill=sex)) +
+  geom_boxplot()+
+  ylab("Breast Chroma")+xlab("Population")+
+  theme_galactic(text.cex = .6)+
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+ggsave("figs/Fig S1. Boxplots of breast chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
+
+# SuppMat Fig.2 -----------------------------------------------------------
+# Boxplots for throat chroma for all populations
+
+  #Add phenotyp
+d_phen %>% 
+  ggplot(aes(x=forcats::fct_inorder(location),y=t.chrom,fill=sex)) +
+  geom_boxplot()+
+  ylab("Throat Chroma")+xlab("Population")+
+  theme_galactic(text.cex = .6)+
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+ggsave("figs/Fig S2. Boxplots of throat chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
