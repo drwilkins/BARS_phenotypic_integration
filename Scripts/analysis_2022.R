@@ -365,6 +365,7 @@ traits_col <- traits[-c(1)]
 #Let's say 20 is our minimum number of each sex
 min_samples<-12
 pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
+pops_w_20_samples<-pop_summary %>% filter(n_F>=20 & n_M>=20)
 nrow(pops_w_min_samples) #28 populations with at least 12 individuals
 d<-d0 %>% filter(population %in% pops_w_min_samples$population)
 nrow(d)
@@ -405,7 +406,64 @@ res<-readRDS("results_10k_bootstraps.RDS")
 #   strata_levels = c("F", "M"),
 #   keep_cols = c("location", "lat", "long")
 # )
-# 
+
+#MALES
+#Get phenotypic integration ranks for bootstrapped data from ALL populations
+phen_M_boot<- res$mean_traits %>% filter(sex=="M")%>%  arrange(desc(PINT.c)) %>% select(population,PINT,PINT.c,avg_r.chrom,N_PINT)
+
+#using bootstrapped PINT data
+phen_ranks_M<-phen_M_boot %>% select(population, PINT, PINT.c) %>% ungroup() %>% mutate(PINT.c_rank=rank(-(PINT.c)),PINT_rank=rank(-PINT))
+
+#look at plot of PINT vs PINT.c 
+phen_ranks_M %>% ggplot(aes(x=PINT,y=PINT.c))+geom_point()+geom_abline(slope=1,intercept=0)+lims(x=c(0,4),y=c(0,4))
+
+d_phen_M <- d %>% filter(sex=="M") %>% 
+  #Add phenotypic integration data to dataset and arrange by that
+  left_join(.,phen_ranks_M) %>% 
+  arrange(PINT_rank)
+
+d_phen_M_pop_means <-
+  d_phen %>% 
+  # filter(zone%in%c("erythrogaster","gutturalis","rustica","tytleri","transitiva","savgnii")) %>% 
+  select(population, location, sex, zone, all_of(traits_col), PINT.c) %>% 
+  group_by(population, zone, location, sex) %>% 
+  summarise(across(where(is.numeric),  ~mean(.x, na.rm = T))) %>% 
+  arrange(desc(PINT.c))
+
+#Plot boxplots of phenotypic integration
+d_phen_M_pop_means %>% 
+  ggplot(aes(x=forcats::fct_inorder(zone),y=PINT.c))+
+  geom_boxplot()+
+  geom_point(color="royalblue")+
+  theme_galactic(text.cex = .6)+
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))+
+  labs(subtitle="PINT.c~zone for all zones p=.0476 *")
+
+#Test for an effect of subspp on integration
+summary(aov(PINT.c~zone,data=d_phen_M_pop_means))
+
+ggsave("figs/AOV_PINT.c~zone_ALL_(Males).png")
+d_phen_M_pop_means[1,] #Baotu is weird gutturalis population
+
+#Now for just well sampled subspecies:
+ d_phen %>% 
+  filter(zone%in%c("erythrogaster","gutturalis","rustica")) %>% 
+  select(population, location, sex, zone, all_of(traits_col), PINT.c) %>% 
+  group_by(population, zone, location, sex) %>% 
+  summarise(across(where(is.numeric),  ~mean(.x, na.rm = T))) %>% 
+  arrange(desc(PINT.c)) %>%
+   
+  ggplot(aes(x=forcats::fct_inorder(zone),y=PINT.c))+
+  geom_boxplot()+
+  geom_point(color="royalblue")+
+  theme_galactic(text.cex = .6)+
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))+
+  labs(subtitle="PINT.c~zone for well-sampled clear subspp p=.152 NS")
+
+#Test for an effect of subspp on integration
+summary(aov(PINT.c~zone,data=d_phen_M_pop_means %>% filter(zone%in%c("erythrogaster","gutturalis","rustica")) ))
+
+ggsave("figs/AOV_PINT.c~zone_gut+ery+rus_(Males).png")
 
 
 # 3. Graph ----------------------------------------------------------------------
@@ -522,16 +580,16 @@ PI_for_pops <-
   }
 
 #Define f(x) for subsetting data & getting filtered correlation matrix
-get_pop_cormat <- function(pop,which_sex,traits){
-   d_cor<- d %>% 
+get_pop_cormat <- function(df,pop,which_sex,traits,threshold=0.3){
+   d_cor<- df %>% 
   filter(population==pop & sex==which_sex) %>% 
-  select(all_of(traits_col)) %>% 
+  select(all_of(traits)) %>% 
    cor(.,use="pairwise.complete",method = "spear")
   d_cor[diag(d_cor)]<-NA
   
   #Filter algorithm
   # Here, simply ≥|0.3|
-  d_cor_bad_indx<-which(abs(d_cor)<0.3)
+  d_cor_bad_indx<-which(abs(d_cor)<threshold)
   d_cor[d_cor_bad_indx]<-0
   
   d_cor
@@ -548,6 +606,7 @@ Q<-function(COR,
             posCol = "#181923",
             negCol = "#181923",
             vsize = 15,
+            maximum=1,
             label.cex = 1.1,
             label.font = 2,
             label.scale.equal = T,
@@ -568,6 +627,7 @@ Q<-function(COR,
       posCol = posCol,
       negCol = negCol,
       vsize = vsize,
+      maximum=maximum,
       label.cex = label.cex,
       label.font= label.font,
       label.scale.equal = label.scale.equal,
@@ -635,7 +695,7 @@ l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7)
 #Plot Male phenonets
 for (i in 1: nrow(male_pops)){
   cur_pop<-male_pops$population[i]
-  mat<-get_pop_cormat(cur_pop,"M",traits_col)
+  mat<-get_pop_cormat(d,cur_pop,"M",traits_col)
   nodecolors<-nodepal[color_ranks[as.character(cur_pop),]]
   
   #Plot info before network
@@ -673,7 +733,7 @@ for (i in 1: nrow(male_pops)){
   
   for (i in 1: nrow(female_pops)){
   cur_pop_F<-female_pops$population[i]
-  mat<-get_pop_cormat(cur_pop,"F",traits_col)
+  mat<-get_pop_cormat(d,cur_pop_F,"F",traits_col)
   nodecolors_F<-nodepal[color_ranks_F[as.character(cur_pop_F),]]
  # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
   #Plot info before network
@@ -707,30 +767,26 @@ dev.off()
 # SuppMat Fig.1 -----------------------------------------------------------
 # Boxplots for breast chroma for all populations
 
-#Get phenotypic integration ranks for ALL populations
-phen_M<-PI_for_pops(d,pops_w_min_samples$population,"M",traits_col,trait_to_average = "r.chrom") %>% arrange(desc(PINT.c))
+#Get phenotypic integration ranks for raw data from ALL populations
+# phen_M_raw<-PI_for_pops(d,pops_w_min_samples$population,"M",traits_col,trait_to_average = "r.chrom") %>% arrange(desc(PINT.c))
+ #not used anymore
 
-phen_ranks_M<-phen %>% select(population, PINT, PINT.c) %>% mutate(PINT.c_rank=(rank(-PINT.c,)))
+phen_ranks_M %>% select(population,PINT.c_rank,PINT_rank) %>% reshape2::melt() %>% ggplot(aes(x=variable,y=value,group=population))+geom_point()+geom_line()+ggrepel::geom_text_repel(aes(label=population))
 
-d_phen <- d %>% 
-  #Add phenotype rank data and arrange by that
-  left_join(.,phen_ranks_M, by="population") %>% 
-  arrange(PINT.c_rank)
-
-  #Add phenotyp
+  #Add phenotype
 d_phen %>% 
   ggplot(aes(x=forcats::fct_inorder(location),y=t.chrom,fill=sex)) +
   geom_boxplot()+
-  ylab("Breast Chroma")+xlab("Population")+
+  ylab("Throat Chroma")+xlab("Population")+
   theme_galactic(text.cex = .8)+
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
 #Save Fig S1
-ggsave("figs/Fig S1. Boxplots of breast chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
+ggsave("figs/Fig S1. Boxplots of throat chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
 
 
 
-  #Add phenotyp
+
 d_phen %>% 
   ggplot(aes(x=forcats::fct_inorder(location),y=r.chrom,fill=sex)) +
   geom_boxplot()+
@@ -739,10 +795,10 @@ d_phen %>%
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 ggsave("figs/Fig S1. Boxplots of breast chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
 
+
 # SuppMat Fig.2 -----------------------------------------------------------
 # Boxplots for throat chroma for all populations
 
-  #Add phenotyp
 d_phen %>% 
   ggplot(aes(x=forcats::fct_inorder(location),y=t.chrom,fill=sex)) +
   geom_boxplot()+
@@ -750,3 +806,71 @@ d_phen %>%
   theme_galactic(text.cex = .6)+
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 ggsave("figs/Fig S2. Boxplots of throat chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
+
+
+# SuppMat Fig.3 -----------------------------------------------------------
+# Phenotype networks for just chroma across V, B,R,T for males
+png("figs/Fig S3. 28_Networks_ordered_by_PI.png",height=2*2.5,width=5*2.5,units="in",res=300)
+par(xpd=T,oma=rep(4,4),ps=18,mfrow=c(2,5))
+#create somewhat complex layout to have titles and graphs together
+# l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
+# layout.show(l)
+
+#Calculate quantiles for each trait's relative color intensity across all traits and ALL populations
+n_col_breaks<-20  #number of color breaks
+color_ranks<-sapply(traits_col,function(x) {
+                      as.numeric(
+                      gtools::quantcut(unlist(
+                        rawmeansM_all[,x]),q=n_col_breaks )) 
+                        })
+  #make 50 quantiles for matching color scores
+  rownames(color_ranks)<-rawmeansM_all$population
+  #reverse ranks for brightness scores only
+  #Higher values equal darker colors
+  color_ranks[,c(1,4,7,10)] <-(n_col_breaks+1)- color_ranks[,c(1,4,7,10)]  #reverse brightness & hue measures so lower values are darker
+  #define color ramp with x gradations
+  nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(n_col_breaks) 
+
+#Plot Male phenonets
+#Just for this subset of color traits
+traits_4col <- c("v.avg.bright","b.avg.bright","r.avg.bright","t.avg.bright")
+
+
+
+for (i in 1: nrow(pops_w_20_samples)){
+  d_phen_subset<-d_phen %>% filter(population %in% pops_w_20_samples$population)
+  cur_pop0<-phen_ranks_M %>% filter(population %in% pops_w_20_samples$population)
+  cur_pop <- cur_pop0$population[i] 
+  
+  #get correlation matrix, with a |.3| threshold for including edges
+  mat<-get_pop_cormat(d_phen_subset,cur_pop,"M",traits = traits_col,threshold=0.5)
+  nodecolors<-nodepal[color_ranks[as.character(cur_pop),traits_col]]
+  
+  #Plot info before network
+  long_name_i<-d %>% distinct(population,.keep_all = T) %>% 
+              filter(population==cur_pop) %>% select(location) %>% unlist
+
+
+  # if(i==1){
+  #   mtext("MALES",1, line=1,at=0,cex=.45)
+  # }
+  
+  Q(mat,color=nodecolors,labels=net_labs,posCol="gray30",negCol="royalblue",mar=c(5,5,6,5),borders=T)
+  
+  mtext(long_name_i,
+        3,line=3,
+        adj=0.5,col="#181923",cex=0.8,font=2)
+  rect(-1.3,-1.3,1.3,1.3,xpd=T)
+  
+  mtext(paste0("PINT.c: \n",phen_ranks_M$PINT[i]),
+        3,line=-.3,at=-1.2,
+        adj=0,col="#181923",cex=.6,font=1)
+  # mtext(paste0("R_chroma: \n",
+  #              round(rawmeansM_all %>% filter(population==cur_pop) %>% select(r.chrom),3)),
+  #       3,line=-1.85,at=-1.2,
+  #       adj=0,col="#181923",cex=.45,font=1)
+  
+
+}
+dev.off()
+
