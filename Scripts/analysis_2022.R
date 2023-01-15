@@ -409,10 +409,13 @@ res<-readRDS("results_10k_bootstraps.RDS")
 
 #MALES
 #Get phenotypic integration ranks for bootstrapped data from ALL populations
-phen_M_boot<- res$mean_traits %>% filter(sex=="M")%>%  arrange(desc(PINT.c)) %>% select(population,PINT,PINT.c,avg_r.chrom,N_PINT)
+phen_M_boot0<- res$mean_traits %>% filter(sex=="M")%>%  arrange(desc(PINT.c)) %>% select(population,PINT,PINT.c,avg_r.chrom,N_PINT)
+
+#add zone back in
+phen_M_boot<-left_join(phen_M_boot0,d %>% select(population,zone) %>% distinct(population,.keep_all = T))
 
 #using bootstrapped PINT data
-phen_ranks_M<-phen_M_boot %>% select(population, PINT, PINT.c) %>% ungroup() %>% mutate(PINT.c_rank=rank(-(PINT.c)),PINT_rank=rank(-PINT))
+phen_ranks_M<-phen_M_boot %>% select(population, zone,PINT, PINT.c) %>% ungroup() %>% mutate(PINT.c_rank=rank(-(PINT.c)),PINT_rank=rank(-PINT))
 
 #look at plot of PINT vs PINT.c 
 phen_ranks_M %>% ggplot(aes(x=PINT,y=PINT.c))+geom_point()+geom_abline(slope=1,intercept=0)+lims(x=c(0,4),y=c(0,4))
@@ -685,7 +688,7 @@ rawmeansF_all<-rawmeansF_0%>% filter(sex=="F") %>% summarise_at(traits_col,mean,
 
 
 ### Generate male networks figure
-png("figs/Fig 3. 6_Networks_ordered.png",width=11,height=6,units="in",res=300)
+png("figs/Fig 3. 6_Networks_ordered(Males).png",width=11,height=6,units="in",res=300)
 par(xpd=T,oma=rep(1,4),ps=18,mar=rep(3,4))
 #create somewhat complex layout to have titles and graphs together
 l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
@@ -800,7 +803,7 @@ d_phen_both %>%
   ylab("Breast Chroma")+xlab("Population")+
   theme_galactic(text.cex = .6)+
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
-ggsave("figs/Fig S1. Boxplots of breast chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
+ggsave("figs/Fig S2. Boxplots of breast chroma for both sexes and all pops.png",dpi=300,width=8,height=4)
 
 
 # SuppMat Fig.2 -----------------------------------------------------------
@@ -817,7 +820,7 @@ ggsave("figs/Fig S2. Boxplots of throat chroma for both sexes and all pops.png",
 
 # SuppMat Fig.3 -----------------------------------------------------------
 # Phenotype networks for 10 well-sampled populations (≥20 indiv)
-png("figs/Fig S3. 10_Networks_ordered_by_PI.png",height=2*3,width=5*3,units="in",res=300)
+png("figs/Fig S3. 10_Networks_ordered_by_PI(Males).png",height=2*3,width=5*3,units="in",res=300)
 par(xpd=T,oma=rep(4,4),ps=18,mfrow=c(2,5))
 #create somewhat complex layout to have titles and graphs together
 # l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
@@ -845,13 +848,13 @@ traits_4col <- c("v.avg.bright","b.avg.bright","r.avg.bright","t.avg.bright")
 
 
 for (i in 1: nrow(pops_w_20_samples)){
-  d_phen_subset<-d_phen_M %>% filter(population %in% pops_w_20_samples$population)
+  # d_phen_subset<-d_phen_M %>% filter(population %in% pops_w_20_samples$population)
   cur_pop0<-phen_ranks_M %>% filter(population %in% pops_w_20_samples$population)
   cur_pop <- cur_pop0$population[i] 
   phen_ranks_M_i<-phen_ranks_M%>% filter(population==cur_pop)
   
   #get correlation matrix, with a |.3| threshold for including edges
-  mat<-get_pop_cormat(d_phen_subset,cur_pop,"M",traits = traits_col,threshold=0.3)
+  mat<-get_pop_cormat(d_phen_M,cur_pop,"M",traits = traits_col,threshold=0.3)
   nodecolors<-nodepal[color_ranks[as.character(cur_pop),traits_col]]
   
   #Plot info before network
@@ -862,7 +865,7 @@ for (i in 1: nrow(pops_w_20_samples)){
   #   mtext("MALES",1, line=1,at=0,cex=.45)
   # }
   
-  Q(mat,color=nodecolors,labels=net_labs,posCol="gray30",negCol="royalblue",mar=c(5,5,6,5),borders=T)
+  Q(mat,color=nodecolors,labels=net_labs,posCol="gray30",negCol="royalblue",mar=c(5,5,6,5),borders=T,maximum=1)
   
   mtext(long_name_i,
         3,line=3,
@@ -883,39 +886,38 @@ dev.off()
 
 # SuppMat Fig.3b -----------------------------------------------------------
 # Phenotype networks for just chroma across V, B,R,T for males
-png("figs/Fig S4. 28_Networks_ordered_by_PI_edgeThresh=|.3|.png",height=4*3,width=7*3,units="in",res=300)
+png("figs/Fig S4. 28_Networks_JUSTChroma_ordered_by_PI_edgeThresh=|.3|(Males).png",height=4*3,width=7*3,units="in",res=300)
 par(xpd=T,oma=rep(4,4),ps=18,mfrow=c(4,7))
 
 
 #Calculate quantiles for each trait's relative color intensity across all traits and ALL populations
-n_col_breaks<-30  #number of color breaks
-color_ranks<-sapply(traits_col,function(x) {
+n_col_breaks<-20  #number of color breaks
+#Just for this subset of color traits
+traits_4col <- c("t.chrom","r.chrom","b.chrom","v.chrom")
+color_ranks<-sapply(traits_4col,function(x) {
                       as.numeric(
                       gtools::quantcut(unlist(
                         rawmeansM_all[,x]),q=n_col_breaks )) 
                         })
   #make 50 quantiles for matching color scores
   rownames(color_ranks)<-rawmeansM_all$population
-  #reverse ranks for brightness scores only
-  #Higher values equal darker colors
-  color_ranks[,c(1,4,7,10)] <-(n_col_breaks+1)- color_ranks[,c(1,4,7,10)]  #reverse brightness & hue measures so lower values are darker
+
   #define color ramp with x gradations
   nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(n_col_breaks) 
 
 #Plot Male phenonets
-#Just for this subset of color traits
-traits_4col <- c("v.avg.bright","b.avg.bright","r.avg.bright","t.avg.bright")
+
 
 
 
 for (i in 1: nrow(pops_w_min_samples)){
-  d_phen_subset<-d_phen_M #%>% filter(population %in% pops_w_20_samples$population)
+  # d_phen_subset<-d_phen_M #%>% filter(population %in% pops_w_20_samples$population)
   cur_pop0<-phen_ranks_M #%>% filter(population %in% pops_w_20_samples$population)
   cur_pop <- cur_pop0$population[i] 
   phen_ranks_M_i<-phen_ranks_M%>% filter(population==cur_pop)
   
   #get correlation matrix, with a |.3| threshold for including edges
-  mat<-get_pop_cormat(d_phen_subset,cur_pop,"M",traits = traits_4col,threshold=0.3)
+  mat<-get_pop_cormat(d_phen_M,cur_pop,"M",traits = traits_4col,threshold=0.3)
   nodecolors<-nodepal[color_ranks[as.character(cur_pop),traits_4col]]
   
   #Plot info before network
@@ -926,7 +928,7 @@ for (i in 1: nrow(pops_w_min_samples)){
   #   mtext("MALES",1, line=1,at=0,cex=.45)
   # }
   
-  Q(mat,color=nodecolors,labels=net_labs[seq(3,12,3)],posCol="gray30",negCol="royalblue",mar=c(5,5,6,5),borders=T)
+  Q(mat,color=nodecolors,labels=net_labs[seq(3,12,3)],posCol="gray30",negCol="royalblue",mar=c(5,5,6,5),borders=T,maximum=1)
   
   mtext(long_name_i,
         3,line=3,
@@ -936,6 +938,10 @@ for (i in 1: nrow(pops_w_min_samples)){
   mtext(paste0("PINT.c: \n",round(phen_ranks_M_i$PINT.c,3)),
         3,line=-1,at=-1.2,
         adj=0,col="#181923",cex=.7,font=1)
+  
+  mtext(paste0("Zone: \n",substr(phen_ranks_M_i$zone,1,4)),
+        3,line=-1,at=1.2,
+        adj=1,col="#181923",cex=.7,font=1)
   # mtext(paste0("R_chroma: \n",
   #              round(rawmeansM_all %>% filter(population==cur_pop) %>% select(r.chrom),3)),
   #       3,line=-1.85,at=-1.2,
@@ -944,3 +950,4 @@ for (i in 1: nrow(pops_w_min_samples)){
 
 }
 dev.off()
+
