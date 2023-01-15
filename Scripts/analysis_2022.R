@@ -816,7 +816,7 @@ ggsave("figs/Fig S2. Boxplots of throat chroma for both sexes and all pops.png",
 
 
 # SuppMat Fig.3 -----------------------------------------------------------
-# Phenotype networks for just chroma across V, B,R,T for males
+# Phenotype networks for 10 well-sampled populations (≥20 indiv)
 png("figs/Fig S3. 10_Networks_ordered_by_PI.png",height=2*3,width=5*3,units="in",res=300)
 par(xpd=T,oma=rep(4,4),ps=18,mfrow=c(2,5))
 #create somewhat complex layout to have titles and graphs together
@@ -851,7 +851,7 @@ for (i in 1: nrow(pops_w_20_samples)){
   phen_ranks_M_i<-phen_ranks_M%>% filter(population==cur_pop)
   
   #get correlation matrix, with a |.3| threshold for including edges
-  mat<-get_pop_cormat(d_phen_subset,cur_pop,"M",traits = traits_col,threshold=0.5)
+  mat<-get_pop_cormat(d_phen_subset,cur_pop,"M",traits = traits_col,threshold=0.3)
   nodecolors<-nodepal[color_ranks[as.character(cur_pop),traits_col]]
   
   #Plot info before network
@@ -881,3 +881,66 @@ for (i in 1: nrow(pops_w_20_samples)){
 }
 dev.off()
 
+# SuppMat Fig.3b -----------------------------------------------------------
+# Phenotype networks for just chroma across V, B,R,T for males
+png("figs/Fig S4. 28_Networks_ordered_by_PI_edgeThresh=|.3|.png",height=4*3,width=7*3,units="in",res=300)
+par(xpd=T,oma=rep(4,4),ps=18,mfrow=c(4,7))
+
+
+#Calculate quantiles for each trait's relative color intensity across all traits and ALL populations
+n_col_breaks<-30  #number of color breaks
+color_ranks<-sapply(traits_col,function(x) {
+                      as.numeric(
+                      gtools::quantcut(unlist(
+                        rawmeansM_all[,x]),q=n_col_breaks )) 
+                        })
+  #make 50 quantiles for matching color scores
+  rownames(color_ranks)<-rawmeansM_all$population
+  #reverse ranks for brightness scores only
+  #Higher values equal darker colors
+  color_ranks[,c(1,4,7,10)] <-(n_col_breaks+1)- color_ranks[,c(1,4,7,10)]  #reverse brightness & hue measures so lower values are darker
+  #define color ramp with x gradations
+  nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(n_col_breaks) 
+
+#Plot Male phenonets
+#Just for this subset of color traits
+traits_4col <- c("v.avg.bright","b.avg.bright","r.avg.bright","t.avg.bright")
+
+
+
+for (i in 1: nrow(pops_w_min_samples)){
+  d_phen_subset<-d_phen_M #%>% filter(population %in% pops_w_20_samples$population)
+  cur_pop0<-phen_ranks_M #%>% filter(population %in% pops_w_20_samples$population)
+  cur_pop <- cur_pop0$population[i] 
+  phen_ranks_M_i<-phen_ranks_M%>% filter(population==cur_pop)
+  
+  #get correlation matrix, with a |.3| threshold for including edges
+  mat<-get_pop_cormat(d_phen_subset,cur_pop,"M",traits = traits_4col,threshold=0.3)
+  nodecolors<-nodepal[color_ranks[as.character(cur_pop),traits_4col]]
+  
+  #Plot info before network
+  long_name_i<-phen_ranks_M_i %>% select(location)
+
+
+  # if(i==1){
+  #   mtext("MALES",1, line=1,at=0,cex=.45)
+  # }
+  
+  Q(mat,color=nodecolors,labels=net_labs[seq(3,12,3)],posCol="gray30",negCol="royalblue",mar=c(5,5,6,5),borders=T)
+  
+  mtext(long_name_i,
+        3,line=3,
+        adj=0.5,col="#181923",cex=0.8,font=2)
+  rect(-1.3,-1.3,1.3,1.3,xpd=T)
+  
+  mtext(paste0("PINT.c: \n",round(phen_ranks_M_i$PINT.c,3)),
+        3,line=-1,at=-1.2,
+        adj=0,col="#181923",cex=.7,font=1)
+  # mtext(paste0("R_chroma: \n",
+  #              round(rawmeansM_all %>% filter(population==cur_pop) %>% select(r.chrom),3)),
+  #       3,line=-1.85,at=-1.2,
+  #       adj=0,col="#181923",cex=.45,font=1)
+  
+
+}
+dev.off()
