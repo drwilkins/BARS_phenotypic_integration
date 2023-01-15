@@ -352,28 +352,28 @@ boot_analy <- function(df = NULL,
 
 # 1. Setup -------------------------------------------------------------------
 #Import all data
-d0<-read_csv("Data/all_populations.csv")
-nrow(d0)
+d00<-read_csv("Data/all_populations.csv")
+nrow(d00)
 
 traits<-c('tail.mean','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r.chrom','b.avg.bright','b.hue','b.chrom','v.avg.bright','v.hue','v.chrom')
 #Just the color traits
 traits_col <- traits[-c(1)]
 
 #limit analysis to pops with at least N samples
-(pop_summary<-d0 %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame())
+(pop_summary<-d00 %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame())
 
 #Let's say 20 is our minimum number of each sex
 min_samples<-12
 pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
 pops_w_20_samples<-pop_summary %>% filter(n_F>=20 & n_M>=20)
 nrow(pops_w_min_samples) #28 populations with at least 12 individuals
-d<-d0 %>% filter(population %in% pops_w_min_samples$population)
-nrow(d)
-d$population<-as.factor(d$population)
-d$sex<-as.factor(d$sex)
+d0<-d00 %>% filter(population %in% pops_w_min_samples$population)
+nrow(d0)
+d0$population<-as.factor(d0$population)
+d0$sex<-as.factor(d0$sex)
 
 #Let's only work with Colorado samples from 2008 (before many experiments)
-d<-d %>% filter(population!="colorado"|population=="colorado"&year==2008)
+d<-d0 %>% filter(population!="colorado"|population=="colorado"&year==2008)
 #Now CO has a more comparable N to other pops
 d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
 
@@ -422,8 +422,15 @@ d_phen_M <- d %>% filter(sex=="M") %>%
   left_join(.,phen_ranks_M) %>% 
   arrange(PINT_rank)
 
+d_phen_F <- d %>% filter(sex=="F") %>% 
+  #Add phenotypic integration data to dataset and arrange by that
+  left_join(.,phen_ranks_M) %>% 
+  arrange(PINT_rank)
+
+d_phen_both<-rbind(d_phen_M,d_phen_F)
+
 d_phen_M_pop_means <-
-  d_phen %>% 
+  d_phen_M %>% 
   # filter(zone%in%c("erythrogaster","gutturalis","rustica","tytleri","transitiva","savgnii")) %>% 
   select(population, location, sex, zone, all_of(traits_col), PINT.c) %>% 
   group_by(population, zone, location, sex) %>% 
@@ -446,7 +453,7 @@ ggsave("figs/AOV_PINT.c~zone_ALL_(Males).png")
 d_phen_M_pop_means[1,] #Baotu is weird gutturalis population
 
 #Now for just well sampled subspecies:
- d_phen %>% 
+ d_phen_M %>% 
   filter(zone%in%c("erythrogaster","gutturalis","rustica")) %>% 
   select(population, location, sex, zone, all_of(traits_col), PINT.c) %>% 
   group_by(population, zone, location, sex) %>% 
@@ -539,7 +546,7 @@ ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",
 
 
 # Function Definitions ----------------------------------------------------
-#Function to calculate raw phenotypic integration (we've only done bootstraps)
+#Function to calculate raw phenotypic integration (not really being used anymore, but a general function)
 # do each sex separately;
 # traits_of_interest= vector of traits to use to calculate phenotypic integration
 # trait_to_average= which trait to average and output (that you want to compare to phenotypic integration)
@@ -774,11 +781,11 @@ dev.off()
 phen_ranks_M %>% select(population,PINT.c_rank,PINT_rank) %>% reshape2::melt() %>% ggplot(aes(x=variable,y=value,group=population))+geom_point()+geom_line()+ggrepel::geom_text_repel(aes(label=population))
 
   #Add phenotype
-d_phen %>% 
+d_phen_both %>% 
   ggplot(aes(x=forcats::fct_inorder(location),y=t.chrom,fill=sex)) +
   geom_boxplot()+
   ylab("Throat Chroma")+xlab("Population")+
-  theme_galactic(text.cex = .8)+
+  theme_galactic(text.cex = .6)+
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
 
 #Save Fig S1
@@ -787,7 +794,7 @@ ggsave("figs/Fig S1. Boxplots of throat chroma for both sexes and all pops.png",
 
 
 
-d_phen %>% 
+d_phen_both %>% 
   ggplot(aes(x=forcats::fct_inorder(location),y=r.chrom,fill=sex)) +
   geom_boxplot()+
   ylab("Breast Chroma")+xlab("Population")+
@@ -799,7 +806,7 @@ ggsave("figs/Fig S1. Boxplots of breast chroma for both sexes and all pops.png",
 # SuppMat Fig.2 -----------------------------------------------------------
 # Boxplots for throat chroma for all populations
 
-d_phen %>% 
+d_phen_M %>% 
   ggplot(aes(x=forcats::fct_inorder(location),y=t.chrom,fill=sex)) +
   geom_boxplot()+
   ylab("Throat Chroma")+xlab("Population")+
@@ -810,7 +817,7 @@ ggsave("figs/Fig S2. Boxplots of throat chroma for both sexes and all pops.png",
 
 # SuppMat Fig.3 -----------------------------------------------------------
 # Phenotype networks for just chroma across V, B,R,T for males
-png("figs/Fig S3. 28_Networks_ordered_by_PI.png",height=2*2.5,width=5*2.5,units="in",res=300)
+png("figs/Fig S3. 10_Networks_ordered_by_PI.png",height=2*3,width=5*3,units="in",res=300)
 par(xpd=T,oma=rep(4,4),ps=18,mfrow=c(2,5))
 #create somewhat complex layout to have titles and graphs together
 # l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
@@ -838,17 +845,17 @@ traits_4col <- c("v.avg.bright","b.avg.bright","r.avg.bright","t.avg.bright")
 
 
 for (i in 1: nrow(pops_w_20_samples)){
-  d_phen_subset<-d_phen %>% filter(population %in% pops_w_20_samples$population)
+  d_phen_subset<-d_phen_M %>% filter(population %in% pops_w_20_samples$population)
   cur_pop0<-phen_ranks_M %>% filter(population %in% pops_w_20_samples$population)
   cur_pop <- cur_pop0$population[i] 
+  phen_ranks_M_i<-phen_ranks_M%>% filter(population==cur_pop)
   
   #get correlation matrix, with a |.3| threshold for including edges
   mat<-get_pop_cormat(d_phen_subset,cur_pop,"M",traits = traits_col,threshold=0.5)
   nodecolors<-nodepal[color_ranks[as.character(cur_pop),traits_col]]
   
   #Plot info before network
-  long_name_i<-d %>% distinct(population,.keep_all = T) %>% 
-              filter(population==cur_pop) %>% select(location) %>% unlist
+  long_name_i<-phen_ranks_M_i %>% select(location)
 
 
   # if(i==1){
@@ -862,8 +869,8 @@ for (i in 1: nrow(pops_w_20_samples)){
         adj=0.5,col="#181923",cex=0.8,font=2)
   rect(-1.3,-1.3,1.3,1.3,xpd=T)
   
-  mtext(paste0("PINT.c: \n",phen_ranks_M$PINT[i]),
-        3,line=-.3,at=-1.2,
+  mtext(paste0("PINT.c: \n",round(phen_ranks_M_i$PINT.c,3)),
+        3,line=-.5,at=-1.2,
         adj=0,col="#181923",cex=.6,font=1)
   # mtext(paste0("R_chroma: \n",
   #              round(rawmeansM_all %>% filter(population==cur_pop) %>% select(r.chrom),3)),
