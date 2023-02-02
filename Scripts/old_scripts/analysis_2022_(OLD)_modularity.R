@@ -66,16 +66,19 @@ pint_list_males=lapply(data_list_males, function(x){
 pint_females=sapply(pint_list_females, function(x) x[[1]])
 pint_males=sapply(pint_list_males, function(x) x[[1]])
 
+##DS Trying to calculate modularity, ala Mel & Marroig
+#define a matrix of traits in same modules
 patches=c(rep(1, 3), rep(2, 3), rep(3, 3), rep(4,3))
 same.patch=outer(patches, patches, FUN="==")
 same.patch
-
+patch.names=c("Throat", "Breast", "Belly", "Vent")
 modules=matrix(nrow=length(patches), ncol=length(patches))
 for(i in 1:4){
 modules[which(patches==i), which(patches==i)] = i
 }
 modules
 
+#now take the list of correlation matrices for males across populations and calculate average correlation coefficients within modules (1-4) and between modules (originating from module 1-4)
 mods.list.male=lapply(corr_list_males, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
@@ -88,11 +91,12 @@ mods.list.male=lapply(corr_list_males, function(x) {
   btw_mod4=mean(abs(x[which(patches==4), which(patches!=4)]))
   data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod1, btw_mod2, btw_mod3, btw_mod4)
 })
-
+#organize results into dataframe
 mods.dat.male=tibble(bind_rows(mods.list.male))
 mods.dat.male$sex="M"
 mods.dat.male$population=names(corr_list_males)
 
+#now do the same for female
 mods.list.female=lapply(corr_list_females, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
@@ -109,7 +113,11 @@ mods.dat.female=tibble(bind_rows(mods.list.female))
 mods.dat.female$sex="F"
 mods.dat.female$population=names(corr_list_females)
 
+#merge the male and female data by population
 mods.dat=mods.dat.female %>% full_join(., mods.dat.male) %>% mutate(avgratio_1=wi_mod1/btw_mod1, avgratio_2=wi_mod2/btw_mod2, avgratio_3=wi_mod3/btw_mod3, avgratio_4=wi_mod1/btw_mod4)
+
+
+
 #Make data frame for main figure (with throat and breast chroma and network density)
 integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright", "b.chrom", "v.chrom", "lat"),mean,na.rm=TRUE) %>% 
   arrange(sex,population) %>% 
@@ -119,41 +127,28 @@ integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
 integ0$pint <- c(pint_females, pint_males)
 integ0 <- integ0 %>% arrange(sex,desc(network_density)) 
 
+#now combine the population-level colro data with modularity data
 integ=mods.dat %>% left_join(., integ0) 
 ###
 
 ##modularity by throat chroma
-ggplot(integ, aes(x=mean.t.chrom, y=wi_mod1)) +
-  geom_point() +
+####NEED TO REDO after pivot_longer()###
+ggplot(integ, aes(x=mean.t.chrom)) +
+  geom_smooth(aes(y=wi_mod1), method="lm", color="blue", se=F) +
+  geom_smooth(aes(y=wi_mod2), method="lm", color="red", se=F) +
+  geom_smooth(aes(y=wi_mod3), method="lm", color="green", se=F) +
+  geom_smooth(aes(y=wi_mod4), method="lm", color="purple", se=F) +
   facet_wrap(~sex)
 
-ggplot(integ, aes(x=mean.r.chrom, y=wi_mod2)) +
-  geom_point() +
+ggplot(integ, aes(x=mean.t.chrom)) +
+  geom_smooth(aes(y=avgratio_1), method="lm", color="blue", se=F) +
+  geom_smooth(aes(y=avgratio_2), method="lm", color="red", se=F) +
+  geom_smooth(aes(y=avgratio_3), method="lm", color="green", se=F) +
+  geom_smooth(aes(y=avgratio_4), method="lm", color="purple", se=F) +
   facet_wrap(~sex)
 
-ggplot(integ, aes(x=mean.b.chrom, y=wi_mod3)) +
-  geom_point() +
-  facet_wrap(~sex)
+#####3
 
-ggplot(integ, aes(x=mean.v.chrom, y=wi_mod4)) +
-  geom_point() +
-  facet_wrap(~sex)
-
-ggplot(integ, aes(x=mean.t.chrom, y=avgratio_1)) +
-  geom_point() +
-  facet_wrap(~sex)
-
-ggplot(integ, aes(x=mean.r.chrom, y=avgratio_2)) +
-  geom_point() +
-  facet_wrap(~sex)
-
-ggplot(integ, aes(x=mean.b.chrom, y=avgratio_3)) +
-  geom_point() +
-  facet_wrap(~sex)
-
-ggplot(integ, aes(x=mean.v.chrom, y=avgratio_4)) +
-  geom_point() +
-  facet_wrap(~sex)
 
 summary(lm(wi_mod1~mean.t.chrom, data=integ %>% filter(sex=="F")))
 summary(lm(wi_mod2~mean.r.chrom, data=integ %>% filter(sex=="F")))

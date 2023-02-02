@@ -398,6 +398,9 @@ d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from
 #results
 res<-readRDS("results_10k_bootstraps.RDS")
 
+##Dai's link
+# res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+
 # res_no_hyb <-boot_analy(
 #   df = d %>% filter(hybrid_zone=="no"),
 #   columns = traits_col,
