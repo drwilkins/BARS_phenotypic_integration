@@ -148,24 +148,28 @@ mod.dat=integ %>% select(starts_with("wi"), starts_with("btw"), ends_with("chrom
 
 ggplot(mod.dat, aes(x=mean.t.chrom, y=edge.weight, color=wi_btw)) +
   geom_smooth( method="lm", se=F) +
+  geom_point()+
   facet_wrap(~patch*sex) +
   theme_classic() +
   ggtitle("by throat chroma")
 
 ggplot(mod.dat, aes(x=mean.r.chrom, y=edge.weight, color=wi_btw)) +
   geom_smooth( method="lm", se=F) +
+  geom_point()+
   facet_wrap(~patch*sex) +
   theme_classic() +
   ggtitle("by breast chroma")
 
 ggplot(mod.dat, aes(x=mean.b.chrom, y=edge.weight, color=wi_btw)) +
   geom_smooth( method="lm", se=F) +
+  geom_point() +
   facet_wrap(~patch*sex) +
   theme_classic() +
   ggtitle("by belly chroma")
 
 ggplot(mod.dat, aes(x=mean.v.chrom, y=edge.weight, color=wi_btw)) +
   geom_smooth( method="lm", se=F) +
+  geom_point()+
   facet_wrap(~patch*sex) +
   theme_classic() +
   ggtitle("by vent chroma")
