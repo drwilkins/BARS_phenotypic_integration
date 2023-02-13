@@ -153,6 +153,13 @@ ggplot(mod.dat, aes(x=mean.t.chrom, y=edge.weight, color=wi_btw)) +
   theme_classic() +
   ggtitle("by throat chroma")
 
+#ggplot(mod.dat %>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=edge.weight, color=wi_btw)) +
+  geom_smooth( method="lm", se=F) +
+  geom_point()+
+  facet_wrap(~patch*sex) +
+  theme_classic() +
+  ggtitle("by throat chroma")
+
 ggplot(mod.dat, aes(x=mean.r.chrom, y=edge.weight, color=wi_btw)) +
   geom_smooth( method="lm", se=F) +
   geom_point()+
