@@ -377,6 +377,9 @@ d<-d0 %>% filter(population!="colorado"|population=="colorado"&year==2008)
 #Now CO has a more comparable N to other pops
 d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
 
+#Export info on just the populations we're using
+d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>% distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
+
 
 # 2.  Analyze -------------------------------------------------------------
 # 

@@ -1,0 +1,29 @@
+population,location,year,lat,long,hybrid_zone,zone
+colorado,"Boulder Co., CO, USA",2008,40.0274,-105.2519,no,erythrogaster
+israel,"Amiad, Israel",2009,32.9282,35.5407,no,transitiva
+czech rep,"Luznice, Czech Rep.",2010,49.0692,14.7112,no,rustica
+romania,"Cojocna, Romania",2010,46.75319,23.83464,no,rustica
+turkey,"Boğazkent, Turkey",2010,36.85771,31.16061,no,rustica
+taiwan,"Taipei, Taiwan",2011,25.041435,121.612744,no,gutturalis
+cornwall,"Cornwall, UK",2009,50.322669,-5.019579,no,rustica
+ithaca,"Tompkins Co., NY, USA",2001,42.45,-76.47,no,erythrogaster
+moscow,"Moscow, Russia",NA,56.724301,37.774761,no,rustica
+karasuk,"Karasuk, Russia",NA,53.730186,77.839711,no,rustica
+zhengzhou,"Zhengzhou, China",NA,34.780976,113.65069,no,gutturalis
+baotu,"Baotou, China",NA,40.552814,109.99833,no,gutturalis
+qiqihar,"Qiqihar, China",NA,47.339176,123.978505,no,gutturalis
+tokyo,"Tokyo, Japan",NA,35.97684,139.135625,no,gutturalis
+rt.zone,"Alzamay, Russia",NA,NA,NA,yes,rt
+jiuquan,"Jiuquan, China",NA,39.719986,98.509744,no,rg.hybrids
+zhangye,"Zhangye, China",NA,38.88759,100.469511,yes,rg.hybrids
+qinhuangdao,"Qinhuangdao, China",NA,39.92558,119.594752,no,gutturalis
+changchun,"Changchun, China",NA,43.906216,125.314668,no,gutturalis
+harbin,"Harbin, China",NA,45.761237,126.609063,no,gutturalis
+rt.zone2,"Khingui, Russia",NA,NA,NA,yes,rt
+zakaltoose,"Zakaltoosem, Russia",NA,52.021259,106.590942,no,tytleri
+yekaterinburg,"Yekaterinburg, Russia",NA,57.575132,62.70624,no,rustica
+narin.talacha,"Naryn-Talacha, Russia",NA,51.937939,114.972817,no,tg
+mixed.barns,"Takecha, Russia",NA,50.45966,113.461906,yes,tg
+morocco,"Marrakesh, Morocco",2016,31.759609134615385,-8.054391807692308,no,rustica
+egypt,"Damietta, Egypt",2015,31.413656,31.567402,no,savignii
+shuangyashan,"Shuangyashan, China",2015,46.59295,131.248593,no,gutturalis
