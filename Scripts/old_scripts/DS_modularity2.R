@@ -1,3 +1,5 @@
+##breaking the correlation into 2 modules 
+
 require(pacman)
 p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply)
 
@@ -126,43 +128,65 @@ integ=mods.dat %>% left_join(., integ0)
 
 head(integ)
 
-mod.dat=integ %>% select(starts_with("wi"), starts_with("btw"), ends_with("chrom"), sex) %>% 
+dat2=integ %>% select(starts_with("wi"), starts_with("btw"), ends_with("chrom"), sex, population) %>% 
   rename(wi_t=wi_mod1, wi_o=wi_mod2, bt_b=btw_mod) %>%
-  pivot_longer(-c(starts_with("mean"),sex), names_to="edge.type", values_to="edge.weight") %>%
+  pivot_longer(-c(starts_with("mean"),sex, population), names_to="edge.type", values_to="edge.weight") %>%
   mutate(wi_btw=str_sub(edge.type, start=1, end=2)) %>%
   mutate(patch=str_sub(edge.type, start=4, end=4)) %>%
   mutate(patch = replace(patch, patch=="t", "throat")) %>%
-  mutate(patch = replace(patch, patch=="o", "other")) %>%
+  mutate(patch = replace(patch, patch=="o", "breast/belly/vent")) %>%
   mutate(patch = replace(patch, patch=="b", "between")) 
 
-ggplot(mod.dat%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
+ggplot(dat2%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F) +
   geom_point()+
   facet_wrap(~sex) +
   theme_classic() +
   ggtitle("by throat chroma")
 
-ggplot(mod.dat, aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
+ggplot(dat2, aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F) +
   geom_point()+
   facet_wrap(~sex) +
   theme_classic() +
   ggtitle("by breast chroma")
 
-ggplot(mod.dat, aes(x=mean.b.chrom, y=edge.weight, color=patch)) +
+ggplot(dat2, aes(x=mean.b.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F) +
   geom_point()+
   facet_wrap(~sex) +
   theme_classic() +
   ggtitle("by belly chroma")
 
-ggplot(mod.dat, aes(x=mean.v.chrom, y=edge.weight, color=patch)) +
+ggplot(dat2, aes(x=mean.v.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F) +
   geom_point()+
   facet_wrap(~sex) +
   theme_classic() +
   ggtitle("by vent chroma")
 
+### plot avg ratio
+avgratios=dat2 %>% group_by(population, sex, patch) %>% 
+  summarise(means=mean(edge.weight)) %>% 
+  pivot_wider(id_cols=c(population, sex), names_from=patch, values_from=means) %>% 
+  mutate(avgratio_1=throat-between, avgratio_2=`breast/belly/vent`-between) %>% 
+  inner_join(., dat2, multiple="first") %>%
+  select(population, sex, avgratio_1, avgratio_2, starts_with("mean")) %>%
+  pivot_longer(cols=c(starts_with("avg")), names_to="type", values_to="ratio")
+
+ggplot(avgratios%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=ratio, color=type)) +
+  geom_smooth( method="lm", se=F) +
+  geom_point()+
+  facet_wrap(~sex) +
+  theme_classic() +
+  ggtitle("by throat chroma")
+
+ggplot(avgratios, aes(x=mean.r.chrom, y=ratio, color=type)) +
+  geom_smooth( method="lm", se=F) +
+  geom_point()+
+  facet_wrap(~sex) +
+  theme_classic() +
+  ggtitle("by breast chroma")
 
 #####3
 
