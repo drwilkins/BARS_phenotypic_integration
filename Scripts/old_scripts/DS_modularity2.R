@@ -2,6 +2,7 @@
 
 require(pacman)
 p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply)
+library(cowplot)
 
 
 #Import all data
@@ -135,21 +136,26 @@ dat2=integ %>% select(starts_with("wi"), starts_with("btw"), ends_with("chrom"),
   mutate(patch=str_sub(edge.type, start=4, end=4)) %>%
   mutate(patch = replace(patch, patch=="t", "throat")) %>%
   mutate(patch = replace(patch, patch=="o", "breast/belly/vent")) %>%
-  mutate(patch = replace(patch, patch=="b", "between")) 
+  mutate(patch = replace(patch, patch=="b", "between modules")) 
 
 ggplot(dat2%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F) +
   geom_point()+
+  xlim(0.469, 0.581) +
   facet_wrap(~sex) +
-  theme_classic() +
-  ggtitle("by throat chroma")
+  theme_cowplot() +
+  ylab("Average edge eeight within/across modules") +
+  xlab("Average throat chroma of population") 
+ggsave("modularity_2mods_throat.pdf")
 
 ggplot(dat2, aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F) +
   geom_point()+
   facet_wrap(~sex) +
-  theme_classic() +
-  ggtitle("by breast chroma")
+  theme_cowplot() +
+  ylab("Average edge eeight within/across modules") +
+  xlab("Average breast chroma of population") 
+ggsave("modularity_2mods_breast.pdf")
 
 ggplot(dat2, aes(x=mean.b.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F) +
