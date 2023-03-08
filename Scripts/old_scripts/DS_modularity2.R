@@ -133,13 +133,15 @@ dat2=integ %>% select(starts_with("wi"), starts_with("btw"), ends_with("chrom"),
   rename(wi_t=wi_mod1, wi_o=wi_mod2, bt_b=btw_mod) %>%
   pivot_longer(-c(starts_with("mean"),sex, population), names_to="edge.type", values_to="edge.weight") %>%
   mutate(wi_btw=str_sub(edge.type, start=1, end=2)) %>%
+  mutate(wi_btw = replace(wi_btw, wi_btw=="wi", 1)) %>%
+  mutate(wi_btw = replace(wi_btw, wi_btw=="bt", 2)) %>%
   mutate(patch=str_sub(edge.type, start=4, end=4)) %>%
   mutate(patch = replace(patch, patch=="t", "throat")) %>%
   mutate(patch = replace(patch, patch=="o", "breast/belly/vent")) %>%
   mutate(patch = replace(patch, patch=="b", "between modules")) 
 
 ggplot(dat2%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=F) +
+  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point()+
   xlim(0.469, 0.581) +
   facet_wrap(~sex) +
@@ -149,7 +151,7 @@ ggplot(dat2%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=edge.weight, c
 ggsave("modularity_2mods_throat.pdf")
 
 ggplot(dat2, aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=F) +
+  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point()+
   facet_wrap(~sex) +
   theme_cowplot() +
