@@ -1,5 +1,5 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply,parallel)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply,parallel,lme4)
 remotes::install_github("galacticpolymath/galacticEdTools")
 require(galacticEdTools)
 
@@ -956,4 +956,148 @@ for (i in 1: nrow(pops_w_min_samples)){
 
 }
 dev.off()
+
+
+
+# Run Subanalysis to account for genetics ---------------------------------
+fst<-read.csv("Data/pairwise_Fst/pairwise_Fst_table.csv")
+pops_w_fst<-fst$population
+#test if any mismatches with population names (next line should be character(0) )
+pops_w_fst[which(is.na(match(pops_w_fst,d$population)))]
+
+# do main analysis as a glmm of PINT.c~avg_r.chrom + fst from Egypt
+d_gen<-res$boot_sum %>% filter(population %in% pops_w_fst)
+#Add genetic info
+d_gen<-left_join(d_gen,fst[,c("population","weighted_Fst")],by="population") %>% select(population,location,sex,boot_i,PINT,PINT.c,avg_r.chrom,weighted_Fst)
+d_gen_pops<-d_gen %>% distinct(population) %>% unlist
+d_gen_m<-d_gen %>% filter(sex=="M")
+d_gen_f<-d_gen %>% filter(sex=="F")
+
+male_results <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen_m %>% filter(boot_i == i)
+  mod<-lm(PINT.c~avg_r.chrom+ weighted_Fst,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3])
+}) %>% bind_rows
+
+#Look at 95% CIs for males for main result, controlling for fst from egyptian savignii
+quantile(
+  male_results$est_avg_r.chrom,
+  probs = c(.025, .975),
+  na.rm = T,
+  names = F,
+  type = 7
+)
+
+quantile(
+  male_results$est_Fst,
+  probs = c(.025, .975),
+  na.rm = T,
+  names = F,
+  type = 7
+)
+
+#Female results
+female_results <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen_f %>% filter(boot_i == i)
+  mod<-lm(PINT.c~avg_r.chrom+ weighted_Fst,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3])
+}) %>% bind_rows
+
+#Running model with sex as a covariate
+
+both_results <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lm(PINT.c~avg_r.chrom+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
+}) %>% bind_rows
+
+
+#Look at 95% CIs for males for main result, controlling for fst from egyptian savignii
+quantile(
+  female_results$est_avg_r.chrom,
+  probs = c(.025, .975),
+  na.rm = T,
+  names = F,
+  type = 7
+)
+
+quantile(
+  female_results$est_Fst,
+  probs = c(.025, .975),
+  na.rm = T,
+  names = F,
+  type = 7
+)
+
+#95CIs for analysis with sex as covariate, rather than splitting up analyses
+#Significant effect of breast darkness on phenotypic integration (PCIT)
+quantile(both_results$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
+quantile(both_results$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+#Nonsignificant effect of sex on phenotypic integration (PCIT)
+quantile(both_results$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+
+
+both_results%>% pivot_longer(cols=starts_with("est_")) %>% ggplot()+geom_histogram(aes(x=value),fill="gray60",col="gray30")+theme_galactic()+facet_wrap(~name,ncol = 1)+geom_vline(xintercept=0,col="royalblue")+labs(title="Effect estimates",subtitle="PINT.c~ R_chrom + sex (for 10^4) bootstraps")
+ggsave("figs/SX. histograms of effect estimates for lm of PINT~Chrom + Sex.png",width=4,height=4)
+
+pops_boot_i %>% ggplot()+geom_point(aes(x=weighted_Fst,y=avg_r.chrom))
+cor.test(pops_boot_i$avg_r.chrom,pops_boot_i$weighted_Fst)
+
+
+
+# Run main analysis with lm instead of correlation ------------------------
+boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,PINT.c)
+boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,PINT.c)
+boot_both<-rbind(boot_f,boot_m)
+lm_res_f<- pbapply::pblapply(1:max(boot_f$boot_i), function(i) {
+  pops_boot_i <- boot_f %>% filter(boot_i == i)
+  mod<-lm(PINT.c~avg_r.chrom,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2])
+}) %>% bind_rows
+
+#Significant effect for females
+quantile(lm_res_f$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+
+lm_res_m<- pbapply::pblapply(1:max(boot_f$boot_i), function(i) {
+  pops_boot_i <- boot_m %>% filter(boot_i == i)
+  mod<-lm(PINT.c~avg_r.chrom,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2])
+}) %>% bind_rows
+
+#Significant effect for males
+quantile(lm_res_m$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+
+#Run both in a model with sex as a factor
+lm_res_both<- pbapply::pblapply(1:max(boot_both$boot_i), function(i) {
+  pops_boot_i <- boot_both %>% filter(boot_i == i)
+  mod<-lm(PINT.c~avg_r.chrom+sex,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+}) %>% bind_rows
+
+#Significant effect if chroma
+quantile(lm_res_both$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+
+#Significant effect if chroma
+quantile(lm_res_both$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+
+
+
+# Calculate spearman's rank correlations for reduced 20 pops with Fst --------
+reduced_main_m<- pbapply::pblapply(1:max(boot_both$boot_i), function(i) {
+  pops_boot_i <- d_gen_m %>% filter(boot_i == i)
+  mod<-cor.test(pops_boot_i$PINT.c,pops_boot_i$avg_r.chrom,method="s") %>% tidy()
+  out<-mod %>% mutate(boot=i) %>% relocate(boot)
+}) %>% bind_rows
+#Marginally nonsignificant effect of chroma in males, when reducing main analysis to 20 populations
+quantile(reduced_main_m$estimate,probs=c(.025,.975),na.rm=T,names=F,type=7)# (-0.06,0.54)
+
+reduced_main_f<- pbapply::pblapply(1:max(boot_both$boot_i), function(i) {
+  pops_boot_i <- d_gen_f %>% filter(boot_i == i)
+  mod<-cor.test(pops_boot_i$PINT.c,pops_boot_i$avg_r.chrom,method="s") %>% tidy()
+  out<-mod %>% mutate(boot=i) %>% relocate(boot)
+}) %>% bind_rows
+
+#Significant effect of chroma in females, even when reducing main analysis to 20 populations
+quantile(reduced_main_f$estimate,probs=c(.025,.975),na.rm=T,names=F,type=7) # (-0.)
 
