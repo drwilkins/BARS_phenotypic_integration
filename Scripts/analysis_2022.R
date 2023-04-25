@@ -472,7 +472,7 @@ d_phen_M_pop_means[1,] #Baotu is weird gutturalis population
   ggplot(aes(x=forcats::fct_inorder(zone),y=PINT.c))+
   geom_boxplot()+
   geom_point(color="royalblue")+
-  theme_galactic(text.cex = .6)+
+  theme_galactic(text.cex = 1)+
   theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))+
   labs(subtitle="PINT.c~zone for well-sampled clear subspp p=.152 NS")
 
@@ -491,7 +491,7 @@ mytheme<-galacticEdTools::theme_galactic(
      grid.wt.maj = .1,
      grid.wt.min = 0,
      grid.col = "gray70",
-    text.cex = 0.7,
+    text.cex = 1,
     pad.outer = rep(5,4)
    )+theme(strip.text = element_text(size=12))
 
@@ -508,7 +508,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.9,seed = 100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=100)+
   xlab("Breast | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -528,7 +528,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 15,min.segment.length = .1,box.padding = 0.8,seed = 100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=100)+
   xlab("Throat | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -542,10 +542,11 @@ ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
 res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
   ggplot(aes(x=SD_r.chrom,y=PINT.c))+
   mytheme+
+  theme(axis.title=element_text(size=18))+
   stat_ellipse(col="gray60",size=.5)+
   geom_point()+
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 14,min.segment.length = 0.1,box.padding = 0.8,seed = 100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=4,segment.size=.25,force = 10,min.segment.length = 0.1,box.padding = 1,seed = 100)+
   labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"\u2190 Darker Males than Females")),
        y=expression(bold("Phenotypic Integration")))
 ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",dpi=300,width=8,height=4)
@@ -555,10 +556,11 @@ ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",
 res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_t.chrom)) %>% 
   ggplot(aes(x=SD_t.chrom,y=PINT.c))+
   mytheme+
+  theme(axis.title=element_text(size=18))+
   stat_ellipse(col="gray60",size=.5)+
   geom_point()+
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 14,min.segment.length = 0.1,box.padding = 0.8,seed = 100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=4,segment.size=.25,force = 10,min.segment.length = 0.1,box.padding = 1,seed = 100)+
   labs(x=expression(atop(bold(Dichromatism~"in"~Throat~Chroma),"\u2190 Darker Males than Females")),
        y=expression(bold("Phenotypic Integration")))
 ggsave("figs/Fig 2b. Phenotypic Integration ~ Dichromatism in Throat Chroma.png",dpi=300,width=8,height=4)
