@@ -551,6 +551,18 @@ res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.c
 ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",dpi=300,width=8,height=4)
 
 
+# Fig.  2b. Graph of PINT ~ Sex Difference in Throat Chroma ----------------
+res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_t.chrom)) %>% 
+  ggplot(aes(x=SD_t.chrom,y=PINT.c))+
+  mytheme+
+  stat_ellipse(col="gray60",size=.5)+
+  geom_point()+
+  facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=2.5,segment.size=.25,force = 14,min.segment.length = 0.1,box.padding = 0.8,seed = 100)+
+  labs(x=expression(atop(bold(Dichromatism~"in"~Throat~Chroma),"\u2190 Darker Males than Females")),
+       y=expression(bold("Phenotypic Integration")))
+ggsave("figs/Fig 2b. Phenotypic Integration ~ Dichromatism in Throat Chroma.png",dpi=300,width=8,height=4)
+
 # Fig. 3.  Phenotype networks for key populations -------------------------
 
 
