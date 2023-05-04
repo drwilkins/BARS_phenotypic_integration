@@ -220,11 +220,30 @@ nets_male=lapply(corr_list_males, function(x) {
   graph_from_adjacency_matrix(absmat, "undirected", weighted=T)
 })
 
-lapply(nets_male, function(x) {
+## just shorthand for now, removing correlations <0.3. Need to figure out a package to use for filtering now that PCIT is defunct.
+clusters_male=lapply(nets_male, function(x) {
 g=delete.edges(x, which(E(x)$weight<0.3))
-cluster_fast_greedy(g)
+cluster_fast_greedy(g, weights=E(g)$weight)
 })
-plot(g, edge.width=E(g)$weight*10)
+
+memberships_male=lapply(clusters_male, membership)
+memberships_male
+
+comembers_male=lapply(memberships_male, function(x) outer(x, x, "==")+0)
+comembers_male
+
+library(abind)
+comembers_male_array=abind(comembers_male, along=3)
+
+sum_mat_male=apply(comembers_male_array, c(1,2), sum)
+sum_mat_male
+
+
+net=graph_from_adjacency_matrix(sum_mat_male, "undirected", weighted=T, diag=FALSE)
+V(net)$membership=membership(cluster_fast_greedy(net, weights=E(net)$weight))
+
+plot(net, edge.width=E(net)$weight/2, vertex.color=V(net)$membership, vertex.label.dist=2, vertex.label.color="black")
+
 #####
 
 
