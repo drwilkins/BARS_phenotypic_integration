@@ -212,7 +212,21 @@ ggplot(avgratios, aes(x=mean.r.chrom, y=ratio, color=type)) +
   theme_classic() +
   ggtitle("by breast chroma")
 
-#####3
+###run community detection on each matrix
+
+nets_male=lapply(corr_list_males, function(x) {
+  absmat=abs(x)
+  diag(absmat)=0
+  graph_from_adjacency_matrix(absmat, "undirected", weighted=T)
+})
+
+lapply(nets_male, function(x) {
+g=delete.edges(x, which(E(x)$weight<0.3))
+plot(g, edge.weight=E(g)$width*100)
+cluster_fast_greedy(g)
+})
+
+#####
 
 
 summary(lm(wi_mod1~mean.t.chrom, data=integ %>% filter(sex=="F")))
