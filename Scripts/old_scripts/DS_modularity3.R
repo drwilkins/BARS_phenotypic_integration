@@ -244,7 +244,8 @@ V(net)$membership=membership(cluster_fast_greedy(net, weights=E(net)$weight))
 
 plot(net, edge.width=E(net)$weight/2, vertex.color=V(net)$membership, vertex.label.dist=2, vertex.label.color="black")
 
-#####
+
+###
 
 
 summary(lm(wi_mod1~mean.t.chrom, data=integ %>% filter(sex=="F")))
