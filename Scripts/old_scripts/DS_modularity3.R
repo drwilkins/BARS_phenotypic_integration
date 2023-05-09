@@ -190,27 +190,27 @@ ggplot(dat2, aes(x=mean.v.chrom, y=edge.weight, color=patch)) +
   ggtitle("by vent chroma")
 
 ### plot avg ratio
-avgratios=dat2 %>% group_by(population, sex, patch) %>% 
-  summarise(means=mean(edge.weight)) %>% 
-  pivot_wider(id_cols=c(population, sex), names_from=patch, values_from=means) %>% 
-  mutate(avgratio_1=throat-between, avgratio_2=`breast/belly/vent`-between) %>% 
-  inner_join(., dat2, multiple="first") %>%
-  select(population, sex, avgratio_1, avgratio_2, starts_with("mean")) %>%
-  pivot_longer(cols=c(starts_with("avg")), names_to="type", values_to="ratio")
-
-ggplot(avgratios%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=ratio, color=type)) +
-  geom_smooth( method="lm", se=F) +
-  geom_point()+
-  facet_wrap(~sex) +
-  theme_classic() +
-  ggtitle("by throat chroma")
-
-ggplot(avgratios, aes(x=mean.r.chrom, y=ratio, color=type)) +
-  geom_smooth( method="lm", se=F) +
-  geom_point()+
-  facet_wrap(~sex) +
-  theme_classic() +
-  ggtitle("by breast chroma")
+# avgratios=dat2 %>% group_by(population, sex, patch) %>% 
+#   summarise(means=mean(edge.weight)) %>% 
+#   pivot_wider(id_cols=c(population, sex), names_from=patch, values_from=means) %>% 
+#   mutate(avgratio_1=throat-between, avgratio_2=`breast/belly/vent`-between) %>% 
+#   inner_join(., dat2, multiple="first") %>%
+#   select(population, sex, avgratio_1, avgratio_2, starts_with("mean")) %>%
+#   pivot_longer(cols=c(starts_with("avg")), names_to="type", values_to="ratio")
+# 
+# ggplot(avgratios%>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=ratio, color=type)) +
+#   geom_smooth( method="lm", se=F) +
+#   geom_point()+
+#   facet_wrap(~sex) +
+#   theme_classic() +
+#   ggtitle("by throat chroma")
+# 
+# ggplot(avgratios, aes(x=mean.r.chrom, y=ratio, color=type)) +
+#   geom_smooth( method="lm", se=F) +
+#   geom_point()+
+#   facet_wrap(~sex) +
+#   theme_classic() +
+#   ggtitle("by breast chroma")
 
 ###run community detection on each matrix to quantitatively determine good "modules"
 
@@ -220,9 +220,9 @@ nets_male=lapply(corr_list_males, function(x) {
   graph_from_adjacency_matrix(absmat, "undirected", weighted=T)
 })
 
-## just shorthand for now, removing correlations <0.3. Need to figure out a package to use for filtering now that PCIT is defunct.
+## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
 clusters_male=lapply(nets_male, function(x) {
-g=delete.edges(x, which(E(x)$weight<0.3))
+g=delete.edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
 cluster_fast_greedy(g, weights=E(g)$weight)
 })
 
@@ -240,10 +240,61 @@ sum_mat_male
 
 
 net=graph_from_adjacency_matrix(sum_mat_male, "undirected", weighted=T, diag=FALSE)
-V(net)$membership=membership(cluster_fast_greedy(net, weights=E(net)$weight))
+V(net)$membership=membership(cluster_optimal(net, weights=E(net)$weight))
 
 plot(net, edge.width=E(net)$weight/2, vertex.color=V(net)$membership, vertex.label.dist=2, vertex.label.color="black")
 
+####see if throat comes out more as module when average throat chroma is higher
+integ.male=integ %>% filter(sex=="M")
+qs.male=quantile(integ.male$mean.t.chrom, probs=c(0.25, 0.5, 0.75))
+q1.male=which(integ.male$mean.t.chrom<qs.male[1])
+q2.male=which(integ.male$mean.t.chrom<qs.male[2]&integ.male$mean.t.chrom>=qs.male[1])
+q3.male=which(integ.male$mean.t.chrom<qs.male[3]&integ.male$mean.t.chrom>=qs.male[2])
+q4.male=which(integ.male$mean.t.chrom>=qs.male[3])
+
+get_clusters=function(z,y){
+  q.nets=lapply(z[y], function(x) {
+    absmat=abs(x)
+    diag(absmat)=0
+    graph_from_adjacency_matrix(absmat, "undirected", weighted=T)
+  })
+  
+  q.clusters=lapply(q.nets, function(x) {
+    g=delete.edges(x, which(E(x)$weight<0.3))
+    cluster_fast_greedy(g, weights=E(g)$weight)
+  })
+  q.clusters
+  }
+
+q1.clusters_male=get_clusters(corr_list_males, q1.male)
+q2.clusters_male=get_clusters(corr_list_males, q2.male)
+q3.clusters_male=get_clusters(corr_list_males, q3.male)
+q4.clusters_male=get_clusters(corr_list_males, q4.male)
+
+get_comember_net=function(x){
+  require(abind)
+  memberships=lapply(x, membership)
+  comembers=lapply(memberships, function(x) outer(x, x, "==")+0)
+  comembers_array=abind(comembers, along=3)
+  sum_mat=apply(comembers_array, c(1,2), sum)
+  net=graph_from_adjacency_matrix(sum_mat, "undirected", weighted=T, diag=FALSE)
+  V(net)$membership=membership(cluster_optimal(net, weights=E(net)$weight))
+  net
+}
+
+q1.net=get_comember_net(q1.clusters_male)
+q2.net=get_comember_net(q2.clusters_male)
+q3.net=get_comember_net(q3.clusters_male)
+q4.net=get_comember_net(q4.clusters_male)
+
+net=q4.net
+plot(net, edge.width=E(net)$weight/2, vertex.color=V(net)$membership, vertex.label.dist=2, vertex.label.color="black")
+
+par(mfrow=c(2,2))
+for(i in 1:4){
+  net=list(q1.net, q2.net, q3.net, q4.net)[[i]]
+  plot(net, edge.width=E(net)$weight/2, vertex.color=V(net)$membership, vertex.label.dist=2, vertex.label.color="black", main=i)
+}
 
 ###
 
