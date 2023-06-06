@@ -220,24 +220,50 @@ nets_male=lapply(corr_list_males, function(x) {
   graph_from_adjacency_matrix(absmat, "undirected", weighted=T)
 })
 
+nets_female=lapply(corr_list_females, function(x) {
+  absmat=abs(x)
+  diag(absmat)=0
+  graph_from_adjacency_matrix(absmat, "undirected", weighted=T)
+})
+
 ## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
 clusters_male=lapply(nets_male, function(x) {
 g=delete.edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
 cluster_fast_greedy(g, weights=E(g)$weight)
 })
 
-memberships_male=lapply(clusters_male, membership)
-memberships_male
+clusters_female=lapply(nets_female, function(x) {
+  g=delete.edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
+  cluster_fast_greedy(g, weights=E(g)$weight)
+})
 
+memberships_male=lapply(clusters_male, membership)
 comembers_male=lapply(memberships_male, function(x) outer(x, x, "==")+0)
-comembers_male
+
+memberships_female=lapply(clusters_female, membership)
+comembers_female=lapply(memberships_female, function(x) outer(x, x, "==")+0)
 
 library(abind)
 comembers_male_array=abind(comembers_male, along=3)
+comembers_female_array=abind(comembers_female, along=3)
 
 sum_mat_male=apply(comembers_male_array, c(1,2), sum)
 sum_mat_male
 
+sum_mat_female=apply(comembers_female_array, c(1,2), sum)
+
+
+map.data_male=data.frame(expand.grid(rownames(sum_mat_male), colnames(sum_mat_male)), expand.grid(sum_mat_male))
+names(map.data_male)=c("Rows", "Columns", "Values")
+ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) + 
+  geom_tile() +
+  scale_fill_gradient(low="white", high="red")
+
+map.data_female=data.frame(expand.grid(rownames(sum_mat_female), colnames(sum_mat_female)), expand.grid(sum_mat_female))
+names(map.data_female)=c("Rows", "Columns", "Values")
+ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) + 
+  geom_tile() +
+  scale_fill_gradient(low="white", high="red")
 
 net=graph_from_adjacency_matrix(sum_mat_male, "undirected", weighted=T, diag=FALSE)
 V(net)$membership=membership(cluster_optimal(net, weights=E(net)$weight))
