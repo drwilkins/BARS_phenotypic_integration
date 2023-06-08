@@ -491,7 +491,7 @@ mytheme<-galacticEdTools::theme_galactic(
      grid.wt.maj = .1,
      grid.wt.min = 0,
      grid.col = "gray70",
-    text.cex = 1,
+    text.cex = 0.8,
     pad.outer = rep(5,4)
    )+theme(strip.text = element_text(size=12))
 
@@ -508,7 +508,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=30,min.segment.length =0.1,max.overlaps=8)+
   xlab("Breast | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -528,7 +528,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=100)+
+    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=30,min.segment.length =0.1,max.overlaps=8)+
   xlab("Throat | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -718,7 +718,7 @@ l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7)
   color_ranks<-sapply(names(rawmeansM_all)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM_all[,x]),q=50 ))) 
   #make 50 quantiles for matching color scores
   rownames(color_ranks)<-rawmeansM_all$population
-  color_ranks[,c(1:2,4:5,7:8,10:11)] <-51- color_ranks[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
+  color_ranks[,c(1,4,7,10)] <-51- color_ranks[,c(1,4,7,10)]  #reverse brightness measures so lower values are darker
   #define color ramp with 50 gradations
   nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
 
@@ -745,7 +745,7 @@ for (i in 1: nrow(male_pops)){
         adj=0,col="#181923",cex=.45,font=1)
   
   if(i==1){
-    mtext("MALES",1, line=1,at=-.5,cex=.45)
+    mtext("MALES",1, line=1,at=-0.5,cex=.45)
   }
   Q(mat,color=nodecolors,labels=net_labs)
   
@@ -757,7 +757,7 @@ for (i in 1: nrow(male_pops)){
   color_ranks_F<-sapply(names(rawmeansF_all)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansF_all[,x]),q=50 ))) 
   #make 50 quantiles for matching color scores
   rownames(color_ranks_F)<-rawmeansF_all$population
-  color_ranks_F[,c(1:2,4:5,7:8,10:11)] <-51- color_ranks_F[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
+  color_ranks_F[,c(1,4,7,10)] <-51- color_ranks_F[,c(1,4,7,10)]  #reverse brightness measures so lower values are darker
   #define color ramp with 50 gradations
   nodepal_F<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
   
