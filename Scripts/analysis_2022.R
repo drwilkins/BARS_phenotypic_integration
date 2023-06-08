@@ -783,7 +783,7 @@ for (i in 1: nrow(male_pops)){
         3,line=-1.75,at=-1.4,
         adj=0,col="#181923",cex=.45,font=1)
   if(i==1){
-    mtext("FEMALES",1, line=1,at=-0.5,cex=.45)
+    mtext("FEMALES",1, line=1,at=-0.25,cex=.45)
   }
   #plot female phenonet
   Q(mat,color=nodecolors,labels=net_labs)
