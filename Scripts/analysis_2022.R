@@ -1,6 +1,6 @@
 require(pacman)
 p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom)
-remotes::install_github("galacticpolymath/galacticEdTools")
+#remotes::install_github("galacticpolymath/galacticEdTools")
 require(galacticEdTools)
 
 
@@ -399,7 +399,8 @@ d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>% distinct(po
 
 #If you have access to our google drive, you can read in the large data file. Not on github.
 #results
-res<-readRDS("/Users/dshizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+#res<-readRDS("/Users/dshizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 
 ##Dai's link
 # res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
