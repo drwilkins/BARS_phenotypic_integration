@@ -1,6 +1,6 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply,parallel,lme4)
-remotes::install_github("galacticpolymath/galacticEdTools")
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom)
+#remotes::install_github("galacticpolymath/galacticEdTools")
 require(galacticEdTools)
 
 
@@ -399,7 +399,8 @@ d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>% distinct(po
 
 #If you have access to our google drive, you can read in the large data file. Not on github.
 #results
-res<-readRDS("results_10k_bootstraps.RDS")
+#res<-readRDS("/Users/dshizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 
 ##Dai's link
 # res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
@@ -537,6 +538,66 @@ mytheme<-galacticEdTools::theme_galactic(
 (G_combined<-G_t/G_r)
 ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
 
+#DS: Vent coloration
+#vent patch graph with PINT (Wagner 1984 method for phenotypic integration)
+(G_v<-res$mean_traits %>%  
+    group_by(sex) %>% 
+    ggplot(aes(x = avg_v.chrom, y = PINT.c,
+               group=sex)) +
+    mytheme+
+    stat_ellipse(col="gray60",size=.5)+
+    geom_point(size=3,pch=21,col="black", aes(fill = avg_v.chrom)) +
+    scale_fill_gradient(
+      limits = range(res$mean_traits$avg_v.chrom),
+      low = "#FFFFCC",
+      high = "#CC6600",
+      guide = "none"
+    ) + 
+    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=30,min.segment.length =0.1,max.overlaps=8)+
+    xlab("Vent | Average Population Darkness (Chroma)")+
+    ylab("Phenotypic Integration")
+)
+
+#Belly
+(G_b<-res$mean_traits %>%  
+    group_by(sex) %>% 
+    ggplot(aes(x = avg_b.chrom, y = PINT.c,
+               group=sex)) +
+    mytheme+
+    stat_ellipse(col="gray60",size=.5)+
+    geom_point(size=3,pch=21,col="black", aes(fill = avg_b.chrom)) +
+    scale_fill_gradient(
+      limits = range(res$mean_traits$avg_b.chrom),
+      low = "#FFFFCC",
+      high = "#CC6600",
+      guide = "none"
+    ) + 
+    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=30,min.segment.length =0.1,max.overlaps=8)+
+    xlab("Belly | Average Population Darkness (Chroma)")+
+    ylab("Phenotypic Integration")
+)
+
+###Analysis of chroma vs. PINT
+
+#breast
+str(res)
+
+#As correlations
+cor.test(res$mean_traits$PINT.c,res$mean_traits$avg_t.chrom)
+cor.test(res$mean_traits$PINT.c,res$mean_traits$avg_r.chrom)
+cor.test(res$mean_traits$PINT.c,res$mean_traits$avg_b.chrom)
+cor.test(res$mean_traits$PINT.c,res$mean_traits$avg_v.chrom)
+#As linear models
+
+summary(lm(PINT.c~avg_t.chrom + sex, data=res$mean_traits))
+summary(lm(PINT.c~avg_r.chrom + sex, data=res$mean_traits))
+summary(lm(PINT.c~avg_b.chrom + sex, data=res$mean_traits))
+summary(lm(PINT.c~avg_v.chrom + sex, data=res$mean_traits))
+
+### Analysis 2: Latitude
+summary(lm(PINT.c~lat, data=res$mean_traits))
 
 # Fig.  2. Graph of PINT ~ Sex Difference in Breast Chroma ----------------
 res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
