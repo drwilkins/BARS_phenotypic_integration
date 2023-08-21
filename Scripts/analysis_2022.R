@@ -849,7 +849,7 @@ rawmeansF_all<-rawmeansF_0%>% filter(sex=="F") %>% summarise_at(traits_col,mean,
 
 
 ### Generate male networks figure
-png("figs/Fig 3. 6_Networks_ordered(Males).png",width=11,height=6,units="in",res=300)
+pdf("figs/Fig 3. 6_Networks_ordered(Males).pdf",width=11,height=6)#,units="in"#,res=300)
 par(xpd=T,oma=rep(1,4),ps=18,mar=rep(3,4))
 #create somewhat complex layout to have titles and graphs together
 l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
