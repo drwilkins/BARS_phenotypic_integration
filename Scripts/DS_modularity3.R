@@ -71,26 +71,45 @@ pint_males=sapply(pint_list_males, function(x) x[[1]])
 
 ##DS Trying to calculate modularity, ala Mel & Marroig
 #define a matrix of traits in same modules
-patches=c(rep(1, 3), rep(2, 3), rep(3,3), rep(4,3))
+# patches=c(rep(1, 3), rep(2, 3), rep(3,3), rep(4,3))
+# same.patch=outer(patches, patches, FUN="==")
+# same.patch
+# patch.names=c("Throat", "Breast", "Belly", "Vent")
+# modules=matrix(nrow=length(patches), ncol=length(patches))
+# for(i in 1:4){
+# modules[which(patches==i), which(patches==i)] = i
+# }
+# modules
+
+#throat vs. others
+patches=c(rep(1, 3), rep(2, 9))
 same.patch=outer(patches, patches, FUN="==")
 same.patch
-patch.names=c("Throat", "Breast", "Belly", "Vent")
+patch.names=c("Throat", "Breast-Belly-Vent")
 modules=matrix(nrow=length(patches), ncol=length(patches))
-for(i in 1:4){
-modules[which(patches==i), which(patches==i)] = i
+for(i in 1:2){
+  modules[which(patches==i), which(patches==i)] = i
 }
 modules
-
 #now take the list of correlation matrices for males across populations and calculate average correlation coefficients within modules (1-4) and between modules (originating from module 1-4)
+# mods.list.male=lapply(corr_list_males, function(x) {
+#   diag(x)=NA
+#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
+#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+#   wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
+#   wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
+#   btw_mod=mean(abs(x[which(is.na(modules))]))
+#   btw_12=mean(abs(x[1:3, 4:6]))
+#   data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
+# })
+
+#throat vs. not throat
 mods.list.male=lapply(corr_list_males, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-  wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
-  wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
   btw_mod=mean(abs(x[which(is.na(modules))]))
-  btw_12=mean(abs(x[1:3, 4:6]))
-  data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
+  data.frame(wi_mod1, wi_mod2, btw_mod)
 })
 #organize results into dataframe
 mods.dat.male=tibble(bind_rows(mods.list.male))
@@ -98,22 +117,32 @@ mods.dat.male$sex="M"
 mods.dat.male$population=names(corr_list_males)
 
 #now do the same for female
+# mods.list.female=lapply(corr_list_females, function(x) {
+#   diag(x)=NA
+#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
+#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+#   wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
+#   wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
+#   btw_mod=mean(abs(x[which(is.na(modules))]))
+#   btw_12=mean(abs(x[1:3, 4:6]))
+#   data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
+# })
+
+#throat vs. not throat
 mods.list.female=lapply(corr_list_females, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-  wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
-  wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
   btw_mod=mean(abs(x[which(is.na(modules))]))
-  btw_12=mean(abs(x[1:3, 4:6]))
-  data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
+  data.frame(wi_mod1, wi_mod2, btw_mod)
 })
+
 mods.dat.female=tibble(bind_rows(mods.list.female))
 mods.dat.female$sex="F"
 mods.dat.female$population=names(corr_list_females)
 
 #merge the male and female data by population
-mods.dat=mods.dat.female %>% full_join(., mods.dat.male) %>% mutate(avgratio_1=wi_mod1/btw_12, avgratio_2=wi_mod2/btw_12)
+mods.dat=mods.dat.female %>% full_join(., mods.dat.male) %>% mutate(avgratio_1=wi_mod1/btw_mod, avgratio_2=wi_mod2/btw_mod)
 
 
 
@@ -126,35 +155,47 @@ integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
 integ0$pint <- c(pint_females, pint_males)
 integ0 <- integ0 %>% arrange(sex,desc(network_density)) 
 
-#now combine the population-level colro data with modularity data
+#now combine the population-level color data with modularity data
 integ=mods.dat %>% left_join(., integ0) 
 ###
 
-##modularity by throat chroma
+##modularity figures
 
 head(integ)
 
-dat2=integ %>% select(wi_mod1, wi_mod2, btw_12, ends_with("chrom"), sex, population) %>% 
-  rename(wi_t=wi_mod1, wi_r=wi_mod2, bt_t.r=btw_12) %>%
+dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, population) %>% 
+  rename(wi_t=wi_mod1, wi_r=wi_mod2, btw=btw_mod) %>%
   pivot_longer(-c(starts_with("mean"),sex, population), names_to="edge.type", values_to="edge.weight") %>%
   mutate(wi_btw=str_sub(edge.type, start=1, end=2)) %>%
   mutate(wi_btw = replace(wi_btw, wi_btw=="wi", 1)) %>%
   mutate(wi_btw = replace(wi_btw, wi_btw=="bt", 2)) %>%
   mutate(patch=str_sub(edge.type, start=4, end=6)) %>%
   mutate(patch = replace(patch, patch=="t", "within throat")) %>%
-  mutate(patch = replace(patch, patch=="r", "within breast")) %>%
-  mutate(patch = replace(patch, patch=="t.r", "between modules")) 
+  mutate(patch = replace(patch, patch=="r", "within other patches")) %>%
+  mutate(patch = replace(patch, patch=="", "between modules")) 
 
-ggplot(dat2 %>% filter(mean.t.chrom > 0.45), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
+modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point()+
   xlim(0.469, 0.581) +
-  facet_wrap(~sex) +
   theme_cowplot() +
   ylab("Average edge weight") +
   xlab("Average throat chroma of population") +
   guides(linetype=FALSE)
-ggsave("modularity_t.r_throat.jpg", width=10, height=4, bg="white")
+
+modplot1m_nolegend=modplot1m + theme(legend.position="none")
+
+modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
+  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
+  geom_point()+
+  xlim(0.469, 0.581) +
+  theme_cowplot() +
+  ylab("Average edge weight") +
+  xlab("Average throat chroma of population") +
+  theme(legend.position="none") +
+  guides(linetype=FALSE)
+
+#ggsave("modularity_t.r_throat.jpg", width=10, height=4, bg="white")
 
 ##unfiltered
 # ggplot(dat2, aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
@@ -165,29 +206,59 @@ ggsave("modularity_t.r_throat.jpg", width=10, height=4, bg="white")
 #   ylab("Average edge eeight within/across modules") +
 #   xlab("Average throat chroma of population") 
 
-ggplot(dat2, aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
+modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point()+
-  facet_wrap(~sex) +
   theme_cowplot() +
   ylab("Average edge weight") +
   xlab("Average breast chroma of population") +
+  theme(legend.position="none") +
   guides(linetype=FALSE) 
-  ggsave("modularity_t.r_breast.jpg", width=10, height=4, bg="white")
-
-ggplot(dat2, aes(x=mean.b.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=F) +
+  
+modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
+  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point()+
-  facet_wrap(~sex) +
-  theme_classic() +
-  ggtitle("by belly chroma")
+  theme_cowplot() +
+  ylab("Average edge weight") +
+  xlab("Average breast chroma of population") +
+  theme(legend.position="none") +
+  guides(linetype=FALSE) 
 
-ggplot(dat2, aes(x=mean.v.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=F) +
-  geom_point()+
-  facet_wrap(~sex) +
-  theme_classic() +
-  ggtitle("by vent chroma")
+legend_plot=get_legend(modplot1m)
+
+plot_grid(modplot1m_nolegend, modplot2m, legend_plot, modplot1f, modplot2f, legend_plot, align="v", nrow=2)
+
+#regressions
+t_wit_m=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom > 0.45, sex=="M", edge.type=="wi_t"))
+summary(t_wit_m)
+
+t_wit_f=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom> 0.45, sex=="F", edge.type=="wi_t"))
+summary(t_wit_f)
+
+t_btw_m=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom> 0.45, sex=="M", edge.type=="btw"))
+summary(t_btw_m)
+
+t_btw_f=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom> 0.45, sex=="F", edge.type=="btw"))
+summary(t_btw_f)
+
+
+#ggsave("modularity_t.r_breast.jpg", width=10, height=4, bg="white")
+
+
+# 
+# ggplot(dat2, aes(x=mean.b.chrom, y=edge.weight, color=patch)) +
+#   geom_smooth( method="lm", se=F) +
+#   geom_point()+
+#   facet_wrap(~sex) +
+#   theme_classic() +
+#   ggtitle("by belly chroma")
+# 
+# ggplot(dat2, aes(x=mean.v.chrom, y=edge.weight, color=patch)) +
+#   geom_smooth( method="lm", se=F) +
+#   geom_point()+
+#   facet_wrap(~sex) +
+#   theme_classic() +
+#   ggtitle("by vent chroma")
 
 ### plot avg ratio
 # avgratios=dat2 %>% group_by(population, sex, patch) %>% 
