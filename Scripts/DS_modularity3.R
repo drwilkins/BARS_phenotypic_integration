@@ -181,6 +181,7 @@ modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.ch
   theme_cowplot() +
   ylab("Average edge weight") +
   xlab("Average throat chroma of population") +
+  ggtitle("Male") +
   guides(linetype=FALSE)
 
 modplot1m_nolegend=modplot1m + theme(legend.position="none")
@@ -193,6 +194,7 @@ modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.ch
   ylab("Average edge weight") +
   xlab("Average throat chroma of population") +
   theme(legend.position="none") +
+  ggtitle("Female") +
   guides(linetype=FALSE)
 
 #ggsave("modularity_t.r_throat.jpg", width=10, height=4, bg="white")
@@ -213,6 +215,7 @@ modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, c
   ylab("Average edge weight") +
   xlab("Average breast chroma of population") +
   theme(legend.position="none") +
+  ggtitle("Male") +
   guides(linetype=FALSE) 
   
 modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
@@ -222,11 +225,12 @@ modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, c
   ylab("Average edge weight") +
   xlab("Average breast chroma of population") +
   theme(legend.position="none") +
+  ggtitle("Female") +
   guides(linetype=FALSE) 
 
 legend_plot=get_legend(modplot1m)
 
-plot_grid(modplot1m_nolegend, modplot2m, legend_plot, modplot1f, modplot2f, legend_plot, align="v", nrow=2)
+plot_grid(modplot1m_nolegend, modplot2m, modplot1f, modplot2f, align="v", nrow=2)
 
 #regressions
 t_wit_m=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom > 0.45, sex=="M", edge.type=="wi_t"))
