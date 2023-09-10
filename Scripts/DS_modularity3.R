@@ -175,8 +175,9 @@ dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, popula
   mutate(patch = replace(patch, patch=="", "between modules")) 
 
 modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
-  geom_point()+
+  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
+  #geom_point()+
+  scale_color_brewer(palette="Set2")+
   xlim(0.469, 0.581) +
   theme_cowplot() +
   ylab("Average edge weight") +
@@ -189,6 +190,7 @@ modplot1m_nolegend=modplot1m + theme(legend.position="none")
 modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point()+
+  scale_color_brewer(palette="Set2") +
   xlim(0.469, 0.581) +
   theme_cowplot() +
   ylab("Average edge weight") +
@@ -209,9 +211,10 @@ modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.ch
 #   xlab("Average throat chroma of population") 
 
 modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
-  geom_point()+
+  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
+  #geom_point()+
   theme_cowplot() +
+  scale_color_brewer(palette="Set2") +
   ylab("Average edge weight") +
   xlab("Average breast chroma of population") +
   theme(legend.position="none") +
@@ -221,6 +224,7 @@ modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, c
 modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point()+
+  scale_color_brewer(palette="Set2")+
   theme_cowplot() +
   ylab("Average edge weight") +
   xlab("Average breast chroma of population") +
@@ -230,8 +234,9 @@ modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, c
 
 legend_plot=get_legend(modplot1m)
 
-plot_grid(modplot1m_nolegend, modplot2m, modplot1f, modplot2f, align="v", nrow=2)
+plot_grid(modplot1m_nolegend, modplot2m, NULL, modplot1f, modplot2f, legend_plot, nrow=2, rel_widths=c(2,2,1))
 
+ggsave("figs/modularityplot.pdf", width=11, height=8.5, units="in")
 #regressions
 t_wit_m=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom > 0.45, sex=="M", edge.type=="wi_t"))
 summary(t_wit_m)
@@ -245,6 +250,18 @@ summary(t_btw_m)
 t_btw_f=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom> 0.45, sex=="F", edge.type=="btw"))
 summary(t_btw_f)
 
+#interaction between within-module and between module
+t_int_m=lm(edge.weight~mean.t.chrom*edge.type, data=dat2 %>% filter(mean.t.chrom> 0.45, sex=="M"))
+summary(t_int_m)
+
+t_int_f=lm(edge.weight~mean.t.chrom*edge.type, data=dat2 %>% filter(mean.t.chrom> 0.45, sex=="F"))
+summary(t_int_f)
+
+r_int_m=lm(edge.weight~mean.r.chrom*edge.type, data=dat2 %>% filter(mean.r.chrom> 0.45, sex=="M"))
+summary(r_int_m)
+
+r_int_f=lm(edge.weight~mean.r.chrom*edge.type, data=dat2 %>% filter(mean.r.chrom> 0.45, sex=="F"))
+summary(r_int_f)
 
 #ggsave("modularity_t.r_breast.jpg", width=10, height=4, bg="white")
 
