@@ -577,7 +577,8 @@ mytheme<-galacticEdTools::theme_galactic(
      grid.col = "gray70",
     text.cex = 0.8,
     pad.outer = rep(5,4)
-   )+theme(strip.text = element_text(size=12))
+   )+ggplot2::theme(strip.text = element_text(size=12),
+           plot.tag = element_text(size=20))
 
 #regex for populations to label
 focal_pops <- "^Bao|^Marr|^Tai"
@@ -632,12 +633,12 @@ res$mean_traits$sex <-  factor(res$mean_traits$sex,levels=c("M","F"))
   )
 
 #patchwork syntax
-(G_combined<-G_t/G_r)
+(G_combined<-G_t/G_r)+patchwork::plot_annotation(tag_levels='A')
 ggsave("figs/Fig 2. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
 
 
 
-#DS: Vent coloration
+ #DS: Vent coloration
 #vent patch graph with PINT (Wagner 1984 method for phenotypic integration)
 (G_v<-res$mean_traits %>%  
     group_by(sex) %>% 
