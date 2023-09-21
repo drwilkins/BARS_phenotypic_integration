@@ -377,8 +377,11 @@ d<-d0 %>% filter(population!="colorado"|population=="colorado"&year==2008)
 #Now CO has a more comparable N to other pops
 d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
 
-#Export info on just the populations we're using
-d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>% distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
+#Export info on just the populations we're using &rename Taiwan to Taipei, Taiwan for consistencey
+d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>% 
+  mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>% 
+  distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
+
 
 
 # 2.  Analyze -------------------------------------------------------------
@@ -408,7 +411,7 @@ cor.test(d_agg %>% dplyr::filter(sex=="F") %>% pull(avg_t_chrom),
 
 #If you have access to our google drive, you can read in the large data file. Not on github.
 #results
-#res<-readRDS("/Users/dshizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+#res<-readRDS("/Users/mattwilkins/mrw_synced/My Research/My Papers/BARS comparative phenotype network paper/results_10k_bootstraps.RDS")
 res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 
 ##Dai's link
@@ -576,8 +579,15 @@ mytheme<-galacticEdTools::theme_galactic(
     pad.outer = rep(5,4)
    )+theme(strip.text = element_text(size=12))
 
+#regex for populations to label
+focal_pops <- "^Bao|^Marr|^Tai"
+
 #breast patch graph
 (G_r<-res$mean_traits %>%  
+  mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>% 
+      dplyr::mutate(location2=ifelse(
+        grepl(focal_pops,.data$location),
+        .data$location,NA)) %>% 
       ggplot(aes(x = avg_r.chrom, y = PINT.c)) +
   stat_ellipse(col="gray60",size=.5) +
   mytheme+
@@ -589,13 +599,17 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=30,min.segment.length =0.1,max.overlaps=8)+
+    ggrepel::geom_text_repel(aes(label =location2),fontface=1,col="black", size=4,seed = 100,force=300,min.segment.length =.1,max.overlaps=4,box.padding=1)+
   xlab("Breast | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
 
 #throat patch graph with PINT (Wagner 1984 method for phenotypic integration)
-(G_t<-res$mean_traits %>%  
+(G_t<-res$mean_traits  %>%  
+  mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>% 
+      dplyr::mutate(location2=ifelse(
+        grepl(focal_pops,.data$location),
+        .data$location,NA)) %>% 
     group_by(sex) %>% 
       ggplot(aes(x = avg_t.chrom, y = PINT.c,
                  group=sex)) +
@@ -609,7 +623,7 @@ mytheme<-galacticEdTools::theme_galactic(
     guide = "none"
   ) + 
   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=30,min.segment.length =0.1,max.overlaps=8)+
+    ggrepel::geom_text_repel(aes(label =location2),fontface=1,col="black", size=4,seed = 100,force=400, min.segment.length =.1,max.overlaps=4,box.padding=1)+
   xlab("Throat | Average Population Darkness (Chroma)")+
   ylab("Phenotypic Integration")
   )
@@ -617,6 +631,8 @@ mytheme<-galacticEdTools::theme_galactic(
 #patchwork syntax
 (G_combined<-G_t/G_r)
 ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
+
+
 
 #DS: Vent coloration
 #vent patch graph with PINT (Wagner 1984 method for phenotypic integration)
@@ -634,7 +650,7 @@ ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
       guide = "none"
     ) + 
     facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", size=4,seed = 100,force=30,min.segment.length =0.1,max.overlaps=8)+
+    ggrepel::geom_text_repel(aes(label =location2),fontface=1,col="black", size=4,seed = 100,force=3000, min.segment.length =.1,max.overlaps=4,box.padding=1)+
     xlab("Vent | Average Population Darkness (Chroma)")+
     ylab("Phenotypic Integration")
 )
