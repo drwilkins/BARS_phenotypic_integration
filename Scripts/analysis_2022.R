@@ -633,7 +633,7 @@ res$mean_traits$sex <-  factor(res$mean_traits$sex,levels=c("M","F"))
 
 #patchwork syntax
 (G_combined<-G_t/G_r)
-ggsave("figs/Fig 1. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
+ggsave("figs/Fig 2. PINT ~ breast + throat chroma.png",dpi=300,width=8,height=8)
 
 
 
