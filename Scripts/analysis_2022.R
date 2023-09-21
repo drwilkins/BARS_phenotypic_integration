@@ -582,6 +582,9 @@ mytheme<-galacticEdTools::theme_galactic(
 #regex for populations to label
 focal_pops <- "^Bao|^Marr|^Tai"
 
+#reorder classes so males come first for consistency
+res$mean_traits$sex <-  factor(res$mean_traits$sex,levels=c("M","F"))
+
 #breast patch graph
 (G_r<-res$mean_traits %>%  
   mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>% 
