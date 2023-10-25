@@ -461,7 +461,7 @@ d_phen_M_pop_means <-
 
 # Run main analysis with lm instead of correlation ------------------------
 boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
+boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,SD_r.chrom,PINT.c)
 boot_both<-rbind(boot_f,boot_m)
 lm_res_f<- pbapply::pblapply(1:max(boot_f$boot_i), function(i) {
   pops_boot_i <- boot_f %>% filter(boot_i == i)
@@ -551,30 +551,71 @@ mean(lm_res_both_V$est_avg_v.chrom,na.rm=T)
 quantile(lm_res_both_V$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
 mean(lm_res_both_V$est_sex,na.rm=T)
 
+### Look at dichromatism in the bootstrap replicates
+res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom, SD_b.chrom, SD_v.chrom, SD_t.chrom))
 
-# Look at effect of dichrom on PINT---------------------------------------
-#Breast Chroma
-lm_dichrom_R<- pbapply::pblapply(1:max(boot_both$boot_i), function(i) {
-  pops_boot_i <- boot_both %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_r.chrom+sex,data=pops_boot_i) %>% tidy()
-  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+boot_sexdiff=res$boot_sum %>% left_join(., res$boot_sex_diffs %>% select(population, location, boot_i,SD_r.chrom,SD_t.chrom,SD_b.chrom,SD_v.chrom))
+
+#breast
+lm_sexdiff_R<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+  mod<-lm(PINT.c~SD_r.chrom+sex,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_SD_r.chrom=mod$estimate[2], est_sex=mod$estimate[3])
 }) %>% bind_rows
 
-quantile(lm_dichrom_R$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_dichrom_R$est_sex,na.rm=T)
+#Significant effect of chroma
+quantile(lm_sexdiff_R$est_SD_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_R$est_SD_r.chrom,na.rm=T)
+
+#Nonsignificant effect of sex
+quantile(lm_sexdiff_R$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_R$est_sex,na.rm=T)
 
 
-
-#Throat Chroma
-lm_dichrom_T<- pbapply::pblapply(1:max(boot_both$boot_i), function(i) {
-  pops_boot_i <- boot_both %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_t.chrom+sex,data=pops_boot_i) %>% tidy()
-  out<-tibble(boot=i,est_avg_t.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+#throat
+lm_sexdiff_T<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+  mod<-lm(PINT.c~SD_t.chrom+sex,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_SD_t.chrom=mod$estimate[2], est_sex=mod$estimate[3])
 }) %>% bind_rows
 
-quantile(lm_dichrom_T$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_dichrom_T$est_sex,na.rm=T)
+#Significant effect of chroma
+quantile(lm_sexdiff_T$est_SD_t.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_T$est_SD_t.chrom,na.rm=T)
 
+#Nonsignificant effect of sex
+quantile(lm_sexdiff_T$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_T$est_sex,na.rm=T)
+
+#vent
+lm_sexdiff_V<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+  mod<-lm(PINT.c~SD_v.chrom+sex,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_SD_v.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+}) %>% bind_rows
+
+#Significant effect of chroma
+quantile(lm_sexdiff_V$est_SD_v.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_V$est_SD_v.chrom,na.rm=T)
+
+#Nonsignificant effect of sex
+quantile(lm_sexdiff_V$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_V$est_sex,na.rm=T)
+
+#belly
+lm_sexdiff_B<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+  mod<-lm(PINT.c~SD_b.chrom+sex,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_SD_b.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+}) %>% bind_rows
+
+#Significant effect of chroma
+quantile(lm_sexdiff_B$est_SD_b.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_B$est_SD_b.chrom,na.rm=T)
+
+#Nonsignificant effect of sex
+quantile(lm_sexdiff_B$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_sexdiff_B$est_sex,na.rm=T)
 
 # 3. Graph ----------------------------------------------------------------------
 
