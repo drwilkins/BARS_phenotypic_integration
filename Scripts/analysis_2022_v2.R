@@ -833,7 +833,18 @@ summary(lm(PINT.c~avg_b.chrom + sex, data=res$mean_traits))
 summary(lm(PINT.c~avg_v.chrom + sex, data=res$mean_traits))
 
 ### Analysis 2: Latitude
-summary(lm(PINT.c~lat, data=res$mean_traits))
+summary(lm(PINT.c~lat+sex, data=res$mean_traits))
+
+summary(lm(avg_t.chrom~lat+sex, data=res$mean_traits )) #there is a significant effect of latitude on throat chroma...
+summary(lm(avg_t.chrom~lat+sex, data=res$mean_traits %>% filter(avg_t.chrom > 0.4 & avg_t.chrom < 0.55))) #but it is driven by two outliers: the super dark Taiwan birds and super light Cornwall birds.
+summary(lm(avg_r.chrom~lat+sex, data=res$mean_traits))
+summary(lm(avg_v.chrom~lat+sex, data=res$mean_traits))
+summary(lm(avg_b.chrom~lat+sex, data=res$mean_traits))
+
+ggplot(data=res$mean_traits %>% filter(avg_t.chrom > 0.4), aes(x=lat, y=avg_t.chrom, color=sex)) +
+  geom_point()
+
+res$mean_traits[which.min(res$mean_traits$avg_t.chrom),]
 
 # Fig.  2. Graph of PINT ~ Sex Difference in Breast Chroma ----------------
 res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
