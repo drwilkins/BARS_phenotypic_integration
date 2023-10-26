@@ -2,9 +2,9 @@
 
 require(pacman)
 p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply)
-library(cowplot)
-
-
+require(cowplot)
+require(colorBlindness)
+require(viridis)
 #Import all data
 d0<-read_csv("Data/all_populations.csv")
 nrow(d0)
@@ -174,11 +174,13 @@ dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, popula
   mutate(patch = replace(patch, patch=="r", "within other patches")) %>%
   mutate(patch = replace(patch, patch=="", "between modules")) 
 
-modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
-  #geom_point()+
-  scale_color_brewer(palette="Set2")+
+modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=edge.weight, fill=patch, color=patch)) +
+  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
+  geom_point(alpha=0.8, pch=21, color="black")+
+  scale_color_viridis_d(direction=-1)+
+  scale_fill_viridis_d(direction=-1)+
   xlim(0.469, 0.581) +
+  ylim(0,0.7) +
   theme_cowplot() +
   ylab("Average edge weight") +
   xlab("Average throat chroma of population") +
@@ -187,11 +189,13 @@ modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.ch
 
 modplot1m_nolegend=modplot1m + theme(legend.position="none")
 
-modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.chrom, y=edge.weight, color=patch)) +
+modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.chrom, y=edge.weight, color=patch, fill=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
-  geom_point()+
-  scale_color_brewer(palette="Set2") +
+  geom_point(alpha=0.8, pch=21, color="black")+
+  scale_color_viridis_d(direction=-1)+
+  scale_fill_viridis_d(direction=-1)+
   xlim(0.469, 0.581) +
+  ylim(0,0.7) +
   theme_cowplot() +
   ylab("Average edge weight") +
   xlab("Average throat chroma of population") +
@@ -210,22 +214,26 @@ modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.ch
 #   ylab("Average edge eeight within/across modules") +
 #   xlab("Average throat chroma of population") 
 
-modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
-  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
-  #geom_point()+
+modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, color=patch, fill=patch)) +
+  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
+  geom_point(alpha=0.8, pch=21, color="black")+
+  scale_color_viridis_d(direction=-1)+
+  scale_fill_viridis_d(direction=-1)+
   theme_cowplot() +
-  scale_color_brewer(palette="Set2") +
+  ylim(0,0.7) +
   ylab("Average edge weight") +
   xlab("Average breast chroma of population") +
   theme(legend.position="none") +
   ggtitle("Male") +
   guides(linetype=FALSE) 
   
-modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, color=patch)) +
+modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, color=patch, fill=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
-  geom_point()+
-  scale_color_brewer(palette="Set2")+
+  geom_point(alpha=0.8, pch=21, color="black")+
+  scale_color_viridis_d(direction=-1)+
+  scale_fill_viridis_d(direction=-1)+
   theme_cowplot() +
+  ylim(0,0.7) +
   ylab("Average edge weight") +
   xlab("Average breast chroma of population") +
   theme(legend.position="none") +
@@ -347,15 +355,23 @@ sum_mat_female=apply(comembers_female_array, c(1,2), sum)
 
 map.data_male=data.frame(expand.grid(rownames(sum_mat_male), colnames(sum_mat_male)), expand.grid(sum_mat_male))
 names(map.data_male)=c("Rows", "Columns", "Values")
-ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) + 
+
+matrixplot_male=ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) + 
   geom_tile() +
-  scale_fill_gradient(low="white", high="red")
+  scale_fill_gradient(low="white", high="red") +
+  theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank()) 
 
 map.data_female=data.frame(expand.grid(rownames(sum_mat_female), colnames(sum_mat_female)), expand.grid(sum_mat_female))
 names(map.data_female)=c("Rows", "Columns", "Values")
-ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) + 
+
+matrixplot_female=ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) + 
   geom_tile() +
-  scale_fill_gradient(low="white", high="red")
+  scale_fill_gradient(low="white", high="red") +
+  theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank())
+
+plot_grid(matrixplot_male, matrixplot_female, nrow=1)
+
+ggsave("figs/modularity_heatmap.pdf", width=11.5, height=5)
 
 net=graph_from_adjacency_matrix(sum_mat_male, "undirected", weighted=T, diag=FALSE)
 V(net)$membership=membership(cluster_optimal(net, weights=E(net)$weight))
