@@ -371,7 +371,7 @@ matrixplot_female=ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) +
 
 plot_grid(matrixplot_male, matrixplot_female, nrow=1)
 
-ggsave("figs/modularity_heatmap.pdf", width=11.5, height=5)
+#ggsave("figs/modularity_heatmap.pdf", width=11.5, height=5)
 
 net=graph_from_adjacency_matrix(sum_mat_male, "undirected", weighted=T, diag=FALSE)
 V(net)$membership=membership(cluster_optimal(net, weights=E(net)$weight))
@@ -677,11 +677,17 @@ order_pops_by_net_density<-function(integ_df,pops,which_sex){
     arrange(network_density)
   new_df$population
 }
-male_pops<-order_pops_by_net_density(integ,pops_of_interest,"M")
-female_pops<-order_pops_by_net_density(integ,pops_of_interest,"F")
+# male_pops<-order_pops_by_net_density(integ,pops_of_interest,"M")
+# female_pops<-order_pops_by_net_density(integ,pops_of_interest,"F")
+male_pops<-c("baotu", "morocco", "taiwan")
+female_pops<-c("baotu", "morocco", "taiwan")
+
+# male_pops<-c("baotu", "czech rep", "morocco")
+# female_pops<-c("baotu", "czech rep", "morocco")
+
 
 #just a check cuz the spelling is all over the place on these names
-if(sum(is.na(poi_ordered))>0){warning("Name mismatch. One of your pops_of_interest not matched to 'integ' df.")}
+#if(sum(is.na(poi_ordered))>0){warning("Name mismatch. One of your pops_of_interest not matched to 'integ' df.")}
 
 
 #Define f(x) for subsetting data & getting filtered correlation matrix
@@ -703,37 +709,64 @@ get_pop_cormat <- function(pop,which_sex,traits){
 # output Fig 2 & 3. -----------------------------------------------------------
 ###Setup
 #Get means for traits in each population for each sex
-rawmeansM<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="M") %>% summarise_at(traits_col,mean,na.rm=T)
+# rawmeansM<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="M") %>% summarise_at(traits_col,mean,na.rm=T)
+# 
+# rawmeansF<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
+# 
 
-rawmeansF<-d %>% group_by(population) %>% filter(population %in% pops_of_interest,sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
+rawmeansM<-d %>% group_by(population) %>% filter(population %in% male_pops, sex=="M") %>% summarise_at(traits_col,mean,na.rm=T) 
 
+rawmeansF<-d %>% group_by(population) %>% filter(population %in% female_pops, sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
 # Function Definitions ----------------------------------------------------
 ####>>>>>>>>>>>>>>>>>>>>>
 ## Make custom plot function
 Q<-function(COR,lab.col="black",lab.scale=T,lab.font=2,lay="spring",...){
   G<-qgraph(COR,diag=F,fade=F,label.color=lab.col,label.font=lab.font,label.scale=lab.scale,label.norm="0000",mar=c(4,7,7,4),...)
 return(G)}
+
+net_layout=layout=matrix(c(1,4,
+                           0,3,
+                           1,3,
+                           
+                           3,4,
+                           4,3,
+                           3,3,
+                           
+                           3,0,
+                           4,1,
+                           3,1,
+                           
+                           1,0,
+                           0,1,
+                           1,1
+                           ), byrow = T, ncol=2)
+
+
 #<<<<<<<<<<<<<<<
 #
 
+traits_col
+t.lab=c("TBri", "THue", "TChr", "RBri", "RHue", "RChr", "BBri", "BHue", "BChr", "VBri", "VHue", "VChr")
+shps=c("triangle", "triangle", "triangle", "circle", "circle", "circle", "square", "square", "square", "diamond", "diamond", "diamond")
 ### Generate male networks figure
-png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-par(mfrow=c(2,5),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
+#png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
+png("figs/NewFig 1b. Male_Networks_modules_circle.png",width=13,height=5,units="in",res=300)
+par(mfrow=c(1,3),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
-  scalar<-sapply(names(rawmeansM)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM[,x]),q=50 ))) 
+  scalarM<-sapply(names(rawmeansM)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM[,x]),q=50 ))) 
   #make 50 quantiles for matching color scores
-  rownames(scalar)<-rawmeansM$population
-  scalar[,c(1:2,4:5,7:8,10:11)] <-51- scalar[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
+  rownames(scalarM)<-rawmeansM$population
+  scalarM[,c(1:2,4:5,7:8,10:11)] <-51- scalarM[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
   #define color ramp with 50 gradations
   nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
 
 for (i in 1: length(male_pops)){
   cur_pop<-male_pops[i]
   mat<-get_pop_cormat(cur_pop,"M",traits_col)
-  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
+  nodecolor<-nodepal[scalarM[as.character(cur_pop),]]
  # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
-  Q(mat,color=nodecolor,border.color="gray20",labels=toi3,shape=shps,posCol="#181923",negCol=1,vsize=20,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout="circle",rescale=TRUE)
+  Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout="circle",rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
 
@@ -742,32 +775,30 @@ for (i in 1: length(male_pops)){
     box(which="figure",lwd=3)
     #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
   }
-  
-
-  
 }
 dev.off()
 
 ################
 ### Generate female networks figure
-png("figs/Fig 3. Female_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-par(mfrow=c(2,5),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
+#png("figs/Fig 3. Female_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
+png("figs/NewFig 1c. Female_Networks_modules_circle.png",width=13,height=5,units="in",res=300)
+
+par(mfrow=c(1,3),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
-  scalar<-sapply(names(rawmeansF)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansF[,x]),q=50 ))) 
+  scalarF<-sapply(names(rawmeansF)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansF[,x]),q=50 ))) 
   #make 50 quantiles for matching color scores
-  rownames(scalar)<-rawmeansF$population
-  scalar[,c(1:2,4:5,7:8,10:11)] <-51- scalar[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
+  rownames(scalarF)<-rawmeansF$population
+  scalarF[,c(1:2,4:5,7:8,10:11)] <-51- scalarF[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
   #define color ramp with 50 gradations
   nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
 
 for (i in 1: length(female_pops)){
   cur_pop<-female_pops[i]
-  print(i)
   mat<-get_pop_cormat(cur_pop,"F",traits_col)
-  nodecolor<-nodepal[scalar[as.character(cur_pop),]]
+  nodecolor<-nodepal[scalarF[as.character(cur_pop),]]
 
-  Q(mat,color=nodecolor,border.color="gray20",labels=toi3,shape=shps,posCol="#181923",negCol=1,vsize=20,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,lay="circle",rescale=TRUE)
+  Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout="circle",rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
 
@@ -776,11 +807,9 @@ for (i in 1: length(female_pops)){
     box(which="figure",lwd=3)
     #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
   }
-  
-
-  
 }
-dev.off()
+
+  dev.off()
 
 
 # Looking at selection  ---------------------------------------------------
@@ -969,3 +998,5 @@ cor.test(bootDC$DC_r.chrom,bootDC$F_pint,method = "p")
 #   geom_point()+ 
 #   stat_ellipse()+
 #   ggrepel::geom_label_repel(aes(label=population))
+
+
