@@ -108,8 +108,9 @@ mods.list.male=lapply(corr_list_males, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+  wi_mod_both=mean(abs(x[which(is.na(modules)==FALSE)]), na.rm=T)
   btw_mod=mean(abs(x[which(is.na(modules))]))
-  data.frame(wi_mod1, wi_mod2, btw_mod)
+  data.frame(wi_mod1, wi_mod2, wi_mod_both, btw_mod)
 })
 #organize results into dataframe
 mods.dat.male=tibble(bind_rows(mods.list.male))
@@ -133,8 +134,9 @@ mods.list.female=lapply(corr_list_females, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+  wi_mod_both=mean(abs(x[which(modules==1|modules==2)]), na.rm=T)
   btw_mod=mean(abs(x[which(is.na(modules))]))
-  data.frame(wi_mod1, wi_mod2, btw_mod)
+  data.frame(wi_mod1, wi_mod2, wi_mod_both, btw_mod)
 })
 
 mods.dat.female=tibble(bind_rows(mods.list.female))
@@ -142,7 +144,7 @@ mods.dat.female$sex="F"
 mods.dat.female$population=names(corr_list_females)
 
 #merge the male and female data by population
-mods.dat=mods.dat.female %>% full_join(., mods.dat.male) %>% mutate(avgratio_1=wi_mod1/btw_mod, avgratio_2=wi_mod2/btw_mod)
+mods.dat=mods.dat.female %>% full_join(., mods.dat.male) %>% mutate(avgratio_1=wi_mod1/btw_mod, avgratio_2=wi_mod2/btw_mod, avgratio_both=wi_mod_both/btw_mod)
 
 
 
@@ -173,6 +175,16 @@ dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, popula
   mutate(patch = replace(patch, patch=="t", "within throat")) %>%
   mutate(patch = replace(patch, patch=="r", "within other patches")) %>%
   mutate(patch = replace(patch, patch=="", "between modules")) 
+
+## plot avg ratio
+ggplot(integ %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=avgratio_1)) +
+  geom_smooth(method="lm")
+
+summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="M")))
+summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="F")))
+
+summary(lm(avgratio_1~mean.r.chrom, data=integ %>% filter(sex=="M")))
+###
 
 modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=edge.weight, fill=patch, color=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
