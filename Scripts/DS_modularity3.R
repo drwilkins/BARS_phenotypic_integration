@@ -762,7 +762,7 @@ t.lab=c("TBri", "THue", "TChr", "RBri", "RHue", "RChr", "BBri", "BHue", "BChr", 
 shps=c("triangle", "triangle", "triangle", "circle", "circle", "circle", "square", "square", "square", "diamond", "diamond", "diamond")
 ### Generate male networks figure
 #png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-png("figs/NewFig 1b. Male_Networks_modules_circle.png",width=13,height=5,units="in",res=300)
+pdf("figs/NewFig 2. Male_Networks_modules.pdf",width=13,height=5)
 par(mfrow=c(1,3),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
@@ -778,7 +778,7 @@ for (i in 1: length(male_pops)){
   mat<-get_pop_cormat(cur_pop,"M",traits_col)
   nodecolor<-nodepal[scalarM[as.character(cur_pop),]]
  # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
-  Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout="circle",rescale=TRUE, maximum=1)
+  Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
 
@@ -793,8 +793,8 @@ dev.off()
 ################
 ### Generate female networks figure
 #png("figs/Fig 3. Female_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-png("figs/NewFig 1c. Female_Networks_modules_circle.png",width=13,height=5,units="in",res=300)
-
+#png("figs/NewFig 1c. Female_Networks_modules_circle.png",width=13,height=5,units="in",res=300)
+pdf("figs/NewFig 2. Female_Networks_modules.pdf",width=13,height=5)
 par(mfrow=c(1,3),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
@@ -810,7 +810,7 @@ for (i in 1: length(female_pops)){
   mat<-get_pop_cormat(cur_pop,"F",traits_col)
   nodecolor<-nodepal[scalarF[as.character(cur_pop),]]
 
-  Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout="circle",rescale=TRUE, maximum=1)
+  Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
 
