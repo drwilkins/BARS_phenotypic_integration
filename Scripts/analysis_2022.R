@@ -930,8 +930,9 @@ return(G)}
 #look at all included populations to figure out which pops to showcase
   #Males
   res$mean_traits %>% filter(sex=="M")%>% 
-    arrange(desc(PINT.c)) %>% print(n=56)
-  #Lowest for male= "egypt", but there's something whack going on there (males have extremely low and females extremely high phenotypic integration, which is atypical and possibly from reinforcement), so we'll use Taiwan, Middle= "morocco",High="baotu"
+    arrange(desc(avg_r.chrom)) %>% dplyr::relocate(population,location, sex, PINT.c,avg_r.chrom) %>% print(n=56)
+  #Lowest PI for male= "egypt", but there's something whack going on there (males have extremely low and females extremely high phenotypic integration, which is atypical and possibly from reinforcement)
+  #For range of light to dark color for well-photographed pops, we'll use Light="taiwan", Middle= "morocco",Dark="mixed.barns"
   
   # #Females
   # res$mean_traits %>% filter(sex=="F")%>% 
@@ -939,7 +940,7 @@ return(G)}
   # 
 
 #which ones are we interested in?
-pops_of_interest<-c("baotu","taiwan","morocco")
+pops_of_interest<-c("mixed.barns","taiwan","morocco")
 
 # Calculate PINT for each pop by sex,
 # ordered by descending PINT.c
@@ -964,7 +965,7 @@ rawmeansF_all<-rawmeansF_0%>% filter(sex=="F") %>% summarise_at(traits_col,mean,
 
 
 ### Generate male networks figure
-pdf("figs/Fig 3. 6_Networks_ordered(Males).pdf",width=11,height=6)#,units="in"#,res=300)
+pdf("figs/Fig_3._Networks_ordered_(both sexes).pdf",width=11,height=6)#,units="in"#,res=300)
 par(xpd=T,oma=rep(1,4),ps=18,mar=rep(3,4))
 #create somewhat complex layout to have titles and graphs together
 l<-layout(matrix(c(1,7,2,8,3,9,4,10,5,11,6,12),nrow=2),widths=rep(rep(c(0.3,0.7),3),2))
