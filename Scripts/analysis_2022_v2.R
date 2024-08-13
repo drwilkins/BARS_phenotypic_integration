@@ -412,7 +412,8 @@ cor.test(d_agg %>% dplyr::filter(sex=="F") %>% pull(avg_t_chrom),
 #If you have access to our google drive, you can read in the large data file. Not on github.
 #results
 #res<-readRDS("/Users/mattwilkins/mrw_synced/My Research/My Papers/BARS comparative phenotype network paper/results_10k_bootstraps.RDS")
-res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+#res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 
 ##Dai's link
 # res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
@@ -461,7 +462,7 @@ d_phen_M_pop_means <-
 
 # Run main analysis with lm instead of correlation ------------------------
 boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,SD_r.chrom,PINT.c)
+boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
 boot_both<-rbind(boot_f,boot_m)
 lm_res_f<- pbapply::pblapply(1:max(boot_f$boot_i), function(i) {
   pops_boot_i <- boot_f %>% filter(boot_i == i)
@@ -552,70 +553,70 @@ quantile(lm_res_both_V$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
 mean(lm_res_both_V$est_sex,na.rm=T)
 
 ### Look at dichromatism in the bootstrap replicates
-res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom, SD_b.chrom, SD_v.chrom, SD_t.chrom))
+#res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom, SD_b.chrom, SD_v.chrom, SD_t.chrom))
 
-boot_sexdiff=res$boot_sum %>% left_join(., res$boot_sex_diffs %>% select(population, location, boot_i,SD_r.chrom,SD_t.chrom,SD_b.chrom,SD_v.chrom))
+#boot_sexdiff=res$boot_sum %>% left_join(., res$boot_sex_diffs %>% select(population, location, boot_i,SD_r.chrom,SD_t.chrom,SD_b.chrom,SD_v.chrom))
 
 #breast
-lm_sexdiff_R<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
-  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
-  mod<-lm(PINT.c~SD_r.chrom+sex,data=pops_boot_i) %>% tidy()
-  out<-tibble(boot=i,est_SD_r.chrom=mod$estimate[2], est_sex=mod$estimate[3])
-}) %>% bind_rows
+# lm_sexdiff_R<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+#   pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+#   mod<-lm(PINT.c~SD_r.chrom+sex,data=pops_boot_i) %>% tidy()
+#   out<-tibble(boot=i,est_SD_r.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+# }) %>% bind_rows
 
-#Significant effect of chroma
-quantile(lm_sexdiff_R$est_SD_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_R$est_SD_r.chrom,na.rm=T)
+# #Significant effect of chroma
+# quantile(lm_sexdiff_R$est_SD_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_R$est_SD_r.chrom,na.rm=T)
+# 
+# #Nonsignificant effect of sex
+# quantile(lm_sexdiff_R$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_R$est_sex,na.rm=T)
 
-#Nonsignificant effect of sex
-quantile(lm_sexdiff_R$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_R$est_sex,na.rm=T)
-
-
-#throat
-lm_sexdiff_T<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
-  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
-  mod<-lm(PINT.c~SD_t.chrom+sex,data=pops_boot_i) %>% tidy()
-  out<-tibble(boot=i,est_SD_t.chrom=mod$estimate[2], est_sex=mod$estimate[3])
-}) %>% bind_rows
-
-#Significant effect of chroma
-quantile(lm_sexdiff_T$est_SD_t.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_T$est_SD_t.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_sexdiff_T$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_T$est_sex,na.rm=T)
-
-#vent
-lm_sexdiff_V<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
-  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
-  mod<-lm(PINT.c~SD_v.chrom+sex,data=pops_boot_i) %>% tidy()
-  out<-tibble(boot=i,est_SD_v.chrom=mod$estimate[2], est_sex=mod$estimate[3])
-}) %>% bind_rows
-
-#Significant effect of chroma
-quantile(lm_sexdiff_V$est_SD_v.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_V$est_SD_v.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_sexdiff_V$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_V$est_sex,na.rm=T)
-
-#belly
-lm_sexdiff_B<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
-  pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
-  mod<-lm(PINT.c~SD_b.chrom+sex,data=pops_boot_i) %>% tidy()
-  out<-tibble(boot=i,est_SD_b.chrom=mod$estimate[2], est_sex=mod$estimate[3])
-}) %>% bind_rows
-
-#Significant effect of chroma
-quantile(lm_sexdiff_B$est_SD_b.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_B$est_SD_b.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_sexdiff_B$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_sexdiff_B$est_sex,na.rm=T)
+# 
+# #throat
+# lm_sexdiff_T<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+#   pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+#   mod<-lm(PINT.c~SD_t.chrom+sex,data=pops_boot_i) %>% tidy()
+#   out<-tibble(boot=i,est_SD_t.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+# }) %>% bind_rows
+# 
+# #Significant effect of chroma
+# quantile(lm_sexdiff_T$est_SD_t.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_T$est_SD_t.chrom,na.rm=T)
+# 
+# #Nonsignificant effect of sex
+# quantile(lm_sexdiff_T$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_T$est_sex,na.rm=T)
+# 
+# #vent
+# lm_sexdiff_V<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+#   pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+#   mod<-lm(PINT.c~SD_v.chrom+sex,data=pops_boot_i) %>% tidy()
+#   out<-tibble(boot=i,est_SD_v.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+# }) %>% bind_rows
+# 
+# #Significant effect of chroma
+# quantile(lm_sexdiff_V$est_SD_v.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_V$est_SD_v.chrom,na.rm=T)
+# 
+# #Nonsignificant effect of sex
+# quantile(lm_sexdiff_V$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_V$est_sex,na.rm=T)
+# 
+# #belly
+# lm_sexdiff_B<- pbapply::pblapply(1:max(boot_sexdiff$boot_i), function(i) {
+#   pops_boot_i <- boot_sexdiff %>% filter(boot_i == i)
+#   mod<-lm(PINT.c~SD_b.chrom+sex,data=pops_boot_i) %>% tidy()
+#   out<-tibble(boot=i,est_SD_b.chrom=mod$estimate[2], est_sex=mod$estimate[3])
+# }) %>% bind_rows
+# 
+# #Significant effect of chroma
+# quantile(lm_sexdiff_B$est_SD_b.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_B$est_SD_b.chrom,na.rm=T)
+# 
+# #Nonsignificant effect of sex
+# quantile(lm_sexdiff_B$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_sexdiff_B$est_sex,na.rm=T)
 
 # 3. Graph ----------------------------------------------------------------------
 
@@ -773,8 +774,56 @@ res$mean_traits$sex <-  factor(res$mean_traits$sex,levels=c("M","F"))
 ggsave("figs/Fig 2. PINT ~ breast + throat_bw.png",dpi=300,width=8,height=8)
 ggsave("figs/Fig 2. PINT ~ breast + throat_bw.pdf",dpi=300,width=8,height=8)
 
+#Simplified plot
 
- #DS: Vent coloration
+(G_r_simple<-res$mean_traits %>%  
+    dplyr::mutate(location2=ifelse(
+      grepl(focal_pops,.data$location),
+      .data$location,NA)) %>% 
+    ggplot(aes(x = avg_r.chrom, y = PINT.c)) +
+    geom_point(size=3,pch=21,col="black", aes(fill = avg_r.chrom)) +
+    scale_fill_gradient(
+      limits = range(res$mean_traits$avg_r.chrom),
+      low = "#FFFFCC",
+      high = "#CC6600",
+      guide = "none"
+    ) + 
+    geom_smooth(method="lm", color="black") +
+    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+    xlab("Breast | Average Population Color (Chroma)")+
+    ylab("Phenotypic Integration") +
+    theme_bw() +
+    theme(strip.text=element_blank(), axis.text=element_text(size=14), axis.title=element_text(size=16), panel.grid.minor=element_blank(), panel.grid.major=element_blank()) 
+)
+
+#G_r_simple
+
+(G_t_simple<-res$mean_traits %>%  
+    dplyr::mutate(location2=ifelse(
+      grepl(focal_pops,.data$location),
+      .data$location,NA)) %>% 
+    ggplot(aes(x = avg_t.chrom, y = PINT.c)) +
+    geom_point(size=3,pch=21,col="black", aes(fill = avg_t.chrom)) +
+    scale_fill_gradient(
+      limits = range(res$mean_traits$avg_t.chrom),
+      low = "#FFFFCC",
+      high = "#CC6600",
+      guide = "none"
+    ) + 
+    geom_smooth(method="lm", color="black") +
+    facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+    xlab("Throat | Average Population Color (Chroma)")+
+    ylab("Phenotypic Integration") +
+    theme_bw() +
+    theme(strip.text=element_blank(), axis.text=element_text(size=14), axis.title=element_text(size=16), panel.grid.minor=element_blank(), panel.grid.major=element_blank()) 
+)
+
+(G_combined<-G_r_simple/G_t_simple)
+ggsave("figs/Fig 2_v2. PINT ~ breast + throat_bw.png",dpi=300,width=8,height=8)
+ggsave("figs/Fig 2_v2. PINT ~ breast + throat_bw.pdf",dpi=300,width=8,height=8)
+####
+ 
+#DS: Vent coloration
 #vent patch graph with PINT (Wagner 1984 method for phenotypic integration)
 (G_v<-res$mean_traits %>%  
     group_by(sex) %>% 
@@ -846,32 +895,32 @@ ggplot(data=res$mean_traits %>% filter(avg_t.chrom > 0.4), aes(x=lat, y=avg_t.ch
 
 res$mean_traits[which.min(res$mean_traits$avg_t.chrom),]
 
-# Fig.  2. Graph of PINT ~ Sex Difference in Breast Chroma ----------------
-res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
-  ggplot(aes(x=SD_r.chrom,y=PINT.c))+
-  mytheme+
-  theme(axis.title=element_text(size=18))+
-  stat_ellipse(col="gray60",size=.5)+
-  geom_point()+
-  facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=4,segment.size=.25,force = 10,min.segment.length = 0.1,box.padding = 1,seed = 100)+
-  labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"\u2190 Darker Males than Females")),
-       y=expression(bold("Phenotypic Integration")))
-ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",dpi=300,width=8,height=4)
-
-
-# Fig.  2b. Graph of PINT ~ Sex Difference in Throat Chroma ----------------
-res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_t.chrom)) %>% 
-  ggplot(aes(x=SD_t.chrom,y=PINT.c))+
-  mytheme+
-  theme(axis.title=element_text(size=18))+
-  stat_ellipse(col="gray60",size=.5)+
-  geom_point()+
-  facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
-    ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=4,segment.size=.25,force = 10,min.segment.length = 0.1,box.padding = 1,seed = 100)+
-  labs(x=expression(atop(bold(Dichromatism~"in"~Throat~Chroma),"\u2190 Darker Males than Females")),
-       y=expression(bold("Phenotypic Integration")))
-ggsave("figs/Fig 2b. Phenotypic Integration ~ Dichromatism in Throat Chroma.png",dpi=300,width=8,height=4)
+# # Fig.  2. Graph of PINT ~ Sex Difference in Breast Chroma ----------------
+# res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_r.chrom)) %>% 
+#   ggplot(aes(x=SD_r.chrom,y=PINT.c))+
+#   mytheme+
+#   theme(axis.title=element_text(size=18))+
+#   stat_ellipse(col="gray60",size=.5)+
+#   geom_point()+
+#   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+#     ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=4,segment.size=.25,force = 10,min.segment.length = 0.1,box.padding = 1,seed = 100)+
+#   labs(x=expression(atop(bold(Dichromatism~"in"~Breast~Chroma),"\u2190 Darker Males than Females")),
+#        y=expression(bold("Phenotypic Integration")))
+# ggsave("figs/Fig 2. Phenotypic Integration ~ Dichromatism in Breast Chroma.png",dpi=300,width=8,height=4)
+# 
+# 
+# # Fig.  2b. Graph of PINT ~ Sex Difference in Throat Chroma ----------------
+# res$mean_traits %>% left_join(., res$mean_sex_diffs %>% select(population,SD_t.chrom)) %>% 
+#   ggplot(aes(x=SD_t.chrom,y=PINT.c))+
+#   mytheme+
+#   theme(axis.title=element_text(size=18))+
+#   stat_ellipse(col="gray60",size=.5)+
+#   geom_point()+
+#   facet_wrap( ~ sex,labeller =as_labeller(c(M="Males",F="Females") )) + 
+#     ggrepel::geom_text_repel(aes(label =location),col="black", max.overlaps = 15,size=4,segment.size=.25,force = 10,min.segment.length = 0.1,box.padding = 1,seed = 100)+
+#   labs(x=expression(atop(bold(Dichromatism~"in"~Throat~Chroma),"\u2190 Darker Males than Females")),
+#        y=expression(bold("Phenotypic Integration")))
+# ggsave("figs/Fig 2b. Phenotypic Integration ~ Dichromatism in Throat Chroma.png",dpi=300,width=8,height=4)
 
 # Fig. 3.  Phenotype networks for key populations -------------------------
 
@@ -1101,6 +1150,10 @@ for (i in 1: nrow(male_pops)){
   
 }
 dev.off()
+
+
+###DS Alternative layout
+
 
 # SuppMat Fig.1 -----------------------------------------------------------
 # Boxplots for breast chroma for all populations
