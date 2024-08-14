@@ -1,7 +1,7 @@
 ##breaking the correlation into 2 modules 
 
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,ggiraph,glue,ggnetwork,gtools,colourvalues,PHENIX,dplyr,rsample,pbapply,RColorBrewer)
 require(cowplot)
 require(colorBlindness)
 require(viridis)
@@ -447,13 +447,14 @@ for(i in 1:4){
 
 summary(lm(wi_mod1~mean.t.chrom, data=integ %>% filter(sex=="F")))
 summary(lm(wi_mod2~mean.r.chrom, data=integ %>% filter(sex=="F")))
-summary(lm(wi_mod3~mean.b.chrom, data=integ %>% filter(sex=="F")))
-summary(lm(wi_mod4~mean.v.chrom, data=integ %>% filter(sex=="F")))
+#summary(lm(wi_mod3~mean.b.chrom, data=integ %>% filter(sex=="F")))
+#summary(lm(wi_mod4~mean.v.chrom, data=integ %>% filter(sex=="F")))
 
 summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(sex=="F")))
 summary(lm(avgratio_2~mean.r.chrom, data=integ %>% filter(sex=="F")))
-summary(lm(avgratio_3~mean.b.chrom, data=integ %>% filter(sex=="F")))
-summary(lm(avgratio_4~mean.v.chrom, data=integ %>% filter(sex=="F")))
+#summary(lm(avgratio_3~mean.b.chrom, data=integ %>% filter(sex=="F")))
+#summary(lm(avgratio_4~mean.v.chrom, data=integ %>% filter(sex=="F")))
+
 #throat patch graph
 G_t<-ggplot(integ,
        aes(x = mean.t.chrom, y = network_density, fill = mean.t.chrom)) + 
@@ -469,6 +470,7 @@ G_t<-ggplot(integ,
   ggrepel::geom_label_repel(aes(label =population),col="black",max.overlaps = 20,size=2)+
   xlab("Throat | Average Population Darkness (Chroma)")+
   ylab("Network Density")
+
 #nonsignificant relationship with THROAT darkness & network density for both sexes
 cor.test(subset(integ,sex=="F")$mean.t.chrom,
          subset(integ,sex=="F")$network_density,method = "spearman")
@@ -689,13 +691,13 @@ order_pops_by_net_density<-function(integ_df,pops,which_sex){
     arrange(network_density)
   new_df$population
 }
-# male_pops<-order_pops_by_net_density(integ,pops_of_interest,"M")
-# female_pops<-order_pops_by_net_density(integ,pops_of_interest,"F")
-male_pops<-c("baotu", "morocco", "taiwan")
-female_pops<-c("baotu", "morocco", "taiwan")
+male_pops<-order_pops_by_net_density(integ,pops_of_interest,"M")
+female_pops<-order_pops_by_net_density(integ,pops_of_interest,"F")
+#male_pops<-c("baotu", "morocco", "taiwan")
+#female_pops<-c("baotu", "morocco", "taiwan")
 
-# male_pops<-c("baotu", "czech rep", "morocco")
-# female_pops<-c("baotu", "czech rep", "morocco")
+male_pops<-c("baotu", "czech rep", "morocco")
+female_pops<-c("baotu", "czech rep", "morocco")
 
 
 #just a check cuz the spelling is all over the place on these names
@@ -736,17 +738,17 @@ Q<-function(COR,lab.col="black",lab.scale=T,lab.font=2,lay="spring",...){
   G<-qgraph(COR,diag=F,fade=F,label.color=lab.col,label.font=lab.font,label.scale=lab.scale,label.norm="0000",mar=c(4,7,7,4),...)
 return(G)}
 
-net_layout=layout=matrix(c(1,4,
-                           0,3,
-                           1,3,
+net_layout=layout=matrix(c(1,3,
+                           0,2,
+                           1,2,
                            
-                           3,4,
-                           4,3,
-                           3,3,
+                           2,3,
+                           3,2,
+                           2,2,
                            
-                           3,0,
-                           4,1,
+                           2,0,
                            3,1,
+                           2,1,
                            
                            1,0,
                            0,1,
@@ -760,10 +762,12 @@ net_layout=layout=matrix(c(1,4,
 traits_col
 t.lab=c("TBri", "THue", "TChr", "RBri", "RHue", "RChr", "BBri", "BHue", "BChr", "VBri", "VHue", "VChr")
 shps=c("triangle", "triangle", "triangle", "circle", "circle", "circle", "square", "square", "square", "diamond", "diamond", "diamond")
+
+pops=unique(d$population)
 ### Generate male networks figure
 #png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-pdf("figs/NewFig 2. Male_Networks_modules.pdf",width=13,height=5)
-par(mfrow=c(1,3),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
+#pdf("figs/NewFig 2. Male_Networks_modules.pdf",width=13,height=5)
+par(mfrow=c(7,4),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
   scalarM<-sapply(names(rawmeansM)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM[,x]),q=50 ))) 
@@ -772,13 +776,16 @@ par(mfrow=c(1,3),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
   scalarM[,c(1:2,4:5,7:8,10:11)] <-51- scalarM[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
   #define color ramp with 50 gradations
   nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
+  nodepal=brewer.pal(5,"YlGnBu")[c(1,5,2,4,3)]
 
-for (i in 1: length(male_pops)){
-  cur_pop<-male_pops[i]
+for (i in 1: length(pops)){
+  cur_pop<-pops[i]
   mat<-get_pop_cormat(cur_pop,"M",traits_col)
-  nodecolor<-nodepal[scalarM[as.character(cur_pop),]]
+  g=graph_from_adjacency_matrix(abs(mat), diag=FALSE, weighted=T, mode="undirected")
+  nodecolor=nodepal[membership(cluster_fast_greedy(g))]
+  #nodecolor<-nodepal[scalarM[as.character(cur_pop),]]
  # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
-  Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
+  Q(abs(mat),color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
 
@@ -788,7 +795,7 @@ for (i in 1: length(male_pops)){
     #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
   }
 }
-dev.off()
+#dev.off()
 
 ################
 ### Generate female networks figure
