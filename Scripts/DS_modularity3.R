@@ -766,7 +766,7 @@ shps=c("triangle", "triangle", "triangle", "circle", "circle", "circle", "square
 pops=unique(d$population)
 ### Generate male networks figure
 #png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-#pdf("figs/NewFig 2. Male_Networks_modules.pdf",width=13,height=5)
+pdf("figs/NewFig 2. Male_Networks_modules_all.pdf",width=10,height=14)
 par(mfrow=c(7,4),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
@@ -790,12 +790,12 @@ for (i in 1: length(pops)){
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
 
     #Add bounding rectangle for Egypt
-  if(cur_pop=="Egypt"){
-    box(which="figure",lwd=3)
+  # if(cur_pop=="Egypt"){
+  #   box(which="figure",lwd=3)
     #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
-  }
+  #}
 }
-#dev.off()
+dev.off()
 
 ################
 ### Generate female networks figure
@@ -1018,4 +1018,16 @@ cor.test(bootDC$DC_r.chrom,bootDC$F_pint,method = "p")
 #   stat_ellipse()+
 #   ggrepel::geom_label_repel(aes(label=population))
 
+###map
+library(ggmap)
+library(maps)
+pop_locations=d %>% group_by(population) %>% 
+  summarize(lat=mean(lat), long=mean(long)) %>%
+  drop_na() %>%
+  mutate(is_moscow=population=="moscow")
 
+world_coordinates <- map_data("world") 
+ggplot()+
+  geom_map( data = world_coordinates, map = world_coordinates, aes(long, lat, map_id = region), color = "black", fill = "white", size = 0.2) +
+  geom_point(aes(x=long, y=lat, color=is_moscow), data=pop_locations)  +
+  scale_color_manual(values=c("black", "red"))
