@@ -177,13 +177,13 @@ dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, popula
   mutate(patch = replace(patch, patch=="", "between modules")) 
 
 ## plot avg ratio
-ggplot(integ %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=avgratio_1)) +
-  geom_smooth(method="lm")
-
-summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="M")))
-summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="F")))
-
-summary(lm(avgratio_1~mean.r.chrom, data=integ %>% filter(sex=="M")))
+# ggplot(integ %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=avgratio_1)) +
+#   geom_smooth(method="lm")
+# 
+# summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="M")))
+# summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="F")))
+# 
+# summary(lm(avgratio_1~mean.r.chrom, data=integ %>% filter(sex=="M")))
 ###
 
 modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=edge.weight, fill=patch, color=patch)) +
@@ -257,6 +257,7 @@ legend_plot=get_legend(modplot1m)
 plot_grid(modplot1m_nolegend, modplot2m, NULL, modplot1f, modplot2f, legend_plot, nrow=2, rel_widths=c(2,2,1))
 
 ggsave("figs/modularityplot.pdf", width=11, height=8.5, units="in")
+
 #regressions
 t_wit_m=lm(edge.weight~mean.t.chrom, data=dat2 %>% filter(mean.t.chrom > 0.45, sex=="M", edge.type=="wi_t"))
 summary(t_wit_m)
