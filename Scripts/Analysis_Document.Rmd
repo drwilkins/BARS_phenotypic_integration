@@ -23,44 +23,8 @@ p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dpl
 
 ## Plumage data
 
-### Data filtering
-
-Here is how we get from all data to the final dataset we use, which includes 28 populations (not run here).
-```{r, eval=F}
-
-#Import all data
-d00<-read_csv("Data/all_populations.csv")
-nrow(d00)
-
-traits<-c('tail.mean','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r.chrom','b.avg.bright','b.hue','b.chrom','v.avg.bright','v.hue','v.chrom')
-#Just the color traits
-traits_col <- traits[-c(1)]
-
-#limit analysis to pops with at least N samples
-(pop_summary<-d00 %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame())
-
-#Let's say 12 is our minimum number of each sex
-min_samples<-12
-pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
-pops_w_20_samples<-pop_summary %>% filter(n_F>=20 & n_M>=20)
-nrow(pops_w_min_samples) #28 populations with at least 12 individuals
-d0<-d00 %>% filter(population %in% pops_w_min_samples$population)
-nrow(d0)
-d0$population<-as.factor(d0$population)
-d0$sex<-as.factor(d0$sex)
-
-#Let's only work with Colorado samples from 2008 (before many experiments)
-d<-d0 %>% filter(population!="colorado"|population=="colorado"&year==2008)
-#Now CO has a more comparable N to other pops
-d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
-
-#Export info on just the populations we're using &rename Taiwan to Taipei, Taiwan for consistencey
-d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>%
-  mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>%
-  distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
-
-write.csv(d, "Data/data_for_submission.csv")
-
+```{r}
+d=read.csv("../Data/data_for_submission.csv")
 ```
 
 ## Genomic data
@@ -71,9 +35,9 @@ This data is organized as pairwise $F_{ST}$ from reference population (Egypt).
 fst<-read.csv("../Data/pairwise_Fst/pairwise_Fst_table.csv")
 ```
 
-# Custom Functions
+# Bootstrap procedure
 
-## Bootstrap procedure
+The phenotype sample sizes vary between populations. Therefore, we implemented a bootstrap procedure to 
 
 BOOTSTRAP PROCEDURE
 
@@ -93,7 +57,7 @@ Does the following:
   
   5. Calculates the corrected phenotypic integration (PINT.c) value using PHENIX::pint()
   
-  6. Calculates dichromatism (or dimorphism) for traits specified in 'columns' and sex defined by 'strata' using dimorphCal()
+  6. Calculates dichromatism (or dimorphism) for traits specified in 'columns' and sex defined by 'strata' using dimorphCal() (**calculated in earlier iterations of the analyses but taken out in final version**)
   
   7. Calculates correlations of 'cor_type' (default = "p"; passed to cor()) between:
       a. (PI) and trait mean for "toi"
@@ -179,7 +143,7 @@ boot_analy <- function(df = NULL,
         trait_means_ii <- bind_cols(boot_ii[1:2,keep_cols],trait_means_ii)
       }
       
-      # B) Sex Differences in Traits
+      # B) Sex Differences in Traits (used in earlier interations of analyses but taken out in final draft because it does not explain any patterns)
       
       sex_diffs_ii <-
         dimorphCal(boot_ii,
@@ -412,63 +376,61 @@ res <- boot_analy(
   )
 ```
 
-# Start here
 
-## Import data
-
-### The bootstrap results
+### Read in the bootstrap results
 ```{r}
 res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 ```
 
-### Raw data (not bootstrapped)
-```{r}
-d=read.csv("../Data/data_for_submission.csv")
-```
 
 
-
-Create a dataset that only includes populations with Fst data
-```{r}
-pops_w_fst<-fst$population
-d_gen<-res$boot_sum %>% filter(population %in% pops_w_fst)
-```
-
-### Phenotypic Integration analysis
+# Phenotypic Integration analysis
 
 These are the analyses that Table 1 is built from.
 
-Sset up the dataset that includes the Fst data.
+## Dataset for populations with phenotype & genomic data.
+
+From the imported datasets, create a dataset that only includes populations with Fst data. Then, separate out male and female data
 ```{r}
+#identify the populations with Fst data
+pops_w_fst<-fst$population
+#trim the bootstrapped phenotype data to these populations
+d_gen<-res$boot_sum %>% filter(population %in% pops_w_fst)
+#combine the datasets and reduce columns to those we need.
 d_gen<-left_join(d_gen,fst[,c("population","weighted_Fst")],by="population") %>% select(population,location,sex,boot_i,PINT,PINT.c,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,weighted_Fst)
+#clean up and separate males and females.
 d_gen_pops<-d_gen %>% distinct(population) %>% unlist
 d_gen_m<-d_gen %>% filter(sex=="M")
 d_gen_f<-d_gen %>% filter(sex=="F")
 ```
 
+### linear models with phenotypic integration as response variable and color (chroma), Fst, and sex as predictor variables. Do this for each patch: throat (t), breast (r), belly (b), vent (v).
+
 ```{r, eval=F}
+
 #Run all of the models and save the results so that we don't have to run them each time.
-
-lm_results_r.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
-  pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_r.chrom+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
-  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
-}) %>% bind_rows
-
+#throat
 lm_results_t.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
   mod<-lm(PINT.c~avg_t.chrom+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_t.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-#Running model with sex as a covariate and belly chroma
+#breast
+lm_results_r.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lm(PINT.c~avg_r.chrom+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
+}) %>% bind_rows
+
+#belly
 lm_results_b.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
   mod<-lm(PINT.c~avg_b.chrom+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_b.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-#Running model with sex as a covariate and vent chroma
+#vent
 lm_results_v.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
   mod<-lm(PINT.c~avg_v.chrom+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
@@ -478,10 +440,25 @@ lm_results_v.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
 save(lm_results_r.chrom_fst, lm_results_t.chrom_fst, lm_results_b.chrom_fst, lm_results_v.chrom_fst, file="Data/PINTanalysis_results_w_Fst.rds")
 ```
 
+Load in the saved results. 
 ```{r}
 load("../Data/PINTanalysis_results_w_Fst.rds")
 ```
 
+```{r}
+get_mean_ci95=function(x) {
+  avg=round(mean(x,na.rm=T,names=F), digits=2)
+  quant=round(quantile(x,probs=c(.025,.975),na.rm=T,names=F,type=7), digits=2)
+  lower.ci=quant[1]
+  upper.ci=quant[2]
+  paste(avg, " (", lower.ci, " ± ", upper.ci, ")", sep="")
+}
+
+```
+
+```{r}
+get_mean_ci95(lm_results_r.chrom_fst$est_avg_r.chrom)
+```
 Results for breast color, as reported in paper
 ```{r}
 # This is the result reported in paper
@@ -495,14 +472,9 @@ mean(lm_results_r.chrom_fst$est_Fst,na.rm=T,names=F)
 #Nonsignificant effect of sex on phenotypic integration (PCIT)
 quantile(lm_results_r.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
 mean(lm_results_r.chrom_fst$est_sexM,na.rm=T)
+```
 
-#lm_results_r.chrom%>% pivot_longer(cols=starts_with("est_")) %>% ggplot()+geom_histogram(aes(x=value),fill="gray60",col="gray30")+facet_wrap(~name,ncol = 1)+geom_vline(xintercept=0,col="royalblue")+labs(title="Effect estimates",subtitle="PINT.c~ R_chrom + sex (for 10^4) bootstraps")
-
-
-#Running FST model with sex as a covariate and with throat
-
-
-
+```{r}
 # This is the result reported in paper
 #95CIs for analysis with sex as covariate, rather than splitting up analyses
 #Significant effect of breast darkness on phenotypic integration (PCIT)
