@@ -15,7 +15,8 @@ This document contains the R codes used for analyses in Shizuka et al., **Global
 # Load Libraries
 ```{r, message=F}
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer, abind)
+library(xtable)
 
 ```
 
@@ -356,7 +357,7 @@ boot_analy <- function(df = NULL,
 ```
 
 
-# Running the bootstrap procedure
+## Run the bootstrap procedure
 
 Here is how we ran the bootstrapping procedure using the function above (not run here).
 ```{r, eval=F}
@@ -377,12 +378,12 @@ res <- boot_analy(
 ```
 
 
-### Read in the bootstrap results
+## Read in the bootstrap results
 ```{r}
 res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 ```
 
-
+***
 
 # Phenotypic Integration analysis
 
@@ -445,6 +446,7 @@ Load in the saved results.
 load("../Data/PINTanalysis_results_w_Fst.rds")
 ```
 
+Quick function to extract average coefficient and confidence intervals from bootstrap results.
 ```{r}
 get_mean_ci95=function(x) {
   avg=round(mean(x,na.rm=T,names=F), digits=2)
@@ -456,87 +458,39 @@ get_mean_ci95=function(x) {
 
 ```
 
+Extract mean and 95% confidence intervals of coefficient for the linear models and organize into a table. 
 ```{r}
-get_mean_ci95(lm_results_r.chrom_fst$est_avg_r.chrom)
-```
-Results for breast color, as reported in paper
-```{r}
-# This is the result reported in paper
-#95CIs for analysis with sex as covariate, rather than splitting up analyses
-#Significant effect of breast darkness on phenotypic integration (PCIT)
-quantile(lm_results_r.chrom_fst$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.chrom_fst$est_avg_r.chrom,na.rm=T,names=F)
-#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_r.chrom_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.chrom_fst$est_Fst,na.rm=T,names=F)
-#Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_r.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.chrom_fst$est_sexM,na.rm=T)
+t_mod_out=apply(lm_results_t.chrom_fst[,2:4], 2, get_mean_ci95)
+r_mod_out=apply(lm_results_r.chrom_fst[,2:4], 2, get_mean_ci95)
+b_mod_out=apply(lm_results_b.chrom_fst[,2:4], 2, get_mean_ci95)
+v_mod_out=apply(lm_results_v.chrom_fst[,2:4], 2, get_mean_ci95)
+
+mod.results.df=as.data.frame(matrix(c(t_mod_out, r_mod_out, b_mod_out, v_mod_out), nrow=4, byrow=T))
+names(mod.results.df)=c("Chroma", "Fst", "Sex")
+rownames(mod.results.df)=c("Throat", "Breast", "Belly", "Vent")
+
+knitr::kable(mod.results.df, caption="Table 1 (note: the column orders are different than in main text)")
 ```
 
-```{r}
-# This is the result reported in paper
-#95CIs for analysis with sex as covariate, rather than splitting up analyses
-#Significant effect of breast darkness on phenotypic integration (PCIT)
-quantile(lm_results_t.chrom_fst$est_avg_t.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.chrom_fst$est_avg_t.chrom,na.rm=T,names=F)
-#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_t.chrom_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.chrom_fst$est_Fst,na.rm=T,names=F)
-#Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_t.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.chrom_fst$est_sexM,na.rm=T)
 
+### Supplemental analysis: do this for all 28 populations by excluding genomic data
 
-
-
-# This is the result reported in paper
-#95CIs for analysis with sex as covariate, rather than splitting up analyses
-#Significant effect of breast darkness on phenotypic integration (PCIT)
-quantile(lm_results_b.chrom_fst$est_avg_b.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.chrom_fst$est_avg_b.chrom,na.rm=T,names=F)
-#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_b.chrom_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.chrom_fst$est_Fst,na.rm=T,names=F)
-#Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_b.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.chrom_fst$est_sexM,na.rm=T)
-
-
-
-# This is the result reported in paper
-#95CIs for analysis with sex as covariate, rather than splitting up analyses
-#Significant effect of breast darkness on phenotypic integration (PCIT)
-quantile(lm_results_v.chrom_fst$est_avg_v.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.chrom_fst$est_avg_v.chrom,na.rm=T,names=F)
-#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_v.chrom_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.chrom_fst$est_Fst,na.rm=T,names=F)
-#Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_v.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.chrom_fst$est_sexM,na.rm=T)
-```
-
-###supplemental analysis: do this for all 28 populations by excluding genomic data
-
+The main analysis uses 20 populations for which we have both phenotype AND genomic data. Here, we exclude the genomic data and repeat the analysis with all 28 populations for which we have phenotype data to see if the results are robust (they are).
 
 Build the dataset:
-```{r}
 
+
+Run all analyses and save results:
+```{r, eval=T}
 boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_both<-rbind(boot_f,boot_m)
 
+boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
+
+boot_both<-rbind(boot_f,boot_m)
 ```
 
-Run all analyses and save results (not run):
 ```{r, eval=F}
-
-boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_lm<-rbind(boot_f,boot_m)
-
-#Run models with sex as a factor
+#Run models with color and sex as covariates
 lm_res_R<- pbapply::pblapply(1:max(boot_both$boot_i), function(i) {
   pops_boot_i <- boot_both %>% filter(boot_i == i)
   mod<-lm(PINT.c~avg_r.chrom+sex,data=pops_boot_i) %>% tidy()
@@ -569,67 +523,33 @@ save(lm_res_R, lm_res_T, lm_res_B, lm_res_V, file="Data/PINTanalysis_results_no_
 
 ```
 
+Re-load the dataset (if run previously)
 ```{r}
 load("../Data/PINTanalysis_results_no_Fst.rds")
 ```
-Breast color
+
 ```{r}
-
-#Significant effect of chroma
-quantile(lm_res_R$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_R$est_avg_r.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_res_R$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_R$est_sex,na.rm=T)
-
+head(lm_res_T)
 ```
+Supplemental Table 1: 
 
-Throat color:
 ```{r}
-#Run both in a model with sex as a factor
+t_mod_nogenome=apply(lm_res_T[,2:3], 2, get_mean_ci95)
+r_mod_nogenome=apply(lm_res_R[,2:3], 2, get_mean_ci95)
+b_mod_nogenome=apply(lm_res_B[,2:3], 2, get_mean_ci95)
+v_mod_nogenome=apply(lm_res_V[,2:3], 2, get_mean_ci95)
 
+mod_nogenome_results.df=as.data.frame(matrix(c(t_mod_nogenome, r_mod_nogenome, b_mod_nogenome, v_mod_nogenome), nrow=4, byrow=T))
+names(mod_nogenome_results.df)=c("Chroma", "Sex")
+rownames(mod_nogenome_results.df)=c("Throat", "Breast", "Belly", "Vent")
 
-#Significant effect of chroma
-quantile(lm_res_T$est_avg_t.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_T$est_avg_t.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_res_T$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_T$est_sex,na.rm=T)
-```
-
-Belly color
-```{r}
-# Look at effect of belly on PINT -----------------------------
-#Run both in a model with sex as a factor
-
-#Significant effect of chroma
-quantile(lm_res_B$est_avg_b.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_B$est_avg_b.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_res_B$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_B$est_sex,na.rm=T)
-```
-
-Vent color
-```{r}
-# Look at effect of vent on PINT -----------------------------
-#Run both in a model with sex as a factor
-
-#Significant effect of chroma
-quantile(lm_res_V$est_avg_v.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_V$est_avg_v.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_res_V$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_V$est_sex,na.rm=T)
+knitr::kable(mod_nogenome_results.df, caption="Table 1 (note: the column orders are different than in main text)")
 ```
 
 
-####Figure 3
-```{r}
+
+#### Figure 3
+```{r, message=F, warning=F}
 
 #Make males show up on the left to be consistent with other figures.
 G_r_simple<-res$mean_traits %>%  mutate(sex=factor(sex, levels=c("M", "F"))) %>%
@@ -671,11 +591,34 @@ plot_grid(G_r_simple, G_t_simple, nrow=2)
 ```
 
 
-### Modularity
+# Modularity analyses
+
+Analysis for this part of the paper has two parts: 
+
+1. Determine if there are particular sets of traits that act as a separate module. 
+
+    + First, for each population, build a phenotype network, which is essentially the correlation matrix of traits with weakest correlations dropped. 
+
+    + Then, run a 'community detection' algorithm  to determine which nodes form modules in each population. 
+
+    + Add up how many times each pair of traits end up being assigned to the same module.
+
+    + Visualize results as a matrix with heat map colors. 
+  
+(2) Having determined that throat tends to act as a separate module, we then ask whether the plumage coloration becomes more modular as predicted by Melo & Marroig's model (i.e., stronger correlation within module under selection and weaker correlation between modules).
+
+    + calculate the average correlation (edge weight) within and across modules, with throat patch traits assigned as module 1 and traits in breast/belly/vent patches assigned as module 2. Do this for each population for each sex.
+    
+    + linear models to estimate interaction effect within vs. between modules. 
+
+## Make male and female datasets 
+
+For these analyses, we will use the raw data (not the bootstrapped data).
+
 ```{r}
 d$population<-as.factor(d$population)
 d$sex<-as.factor(d$sex)
-### Figure 4A: run community detection on each matrix to quantitatively determine good "modules"
+
 #Male data subset by population
 data_list_males<-lapply(levels(d$population),function(x) (subset(d,population==x&sex=="M")))
 names(data_list_males)<-levels(d$population)
@@ -685,6 +628,7 @@ data_list_females<-lapply(levels(d$population),function(x) (subset(d,population=
 names(data_list_females)<-levels(d$population)
 ```
 
+## Run pairwise correlations for all traits, by sex.
 ```{r}
 traits<-c('tail.mean','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r.chrom','b.avg.bright','b.hue','b.chrom','v.avg.bright','v.hue','v.chrom')
 traits_col <- traits[-c(1)]
@@ -698,6 +642,7 @@ corr_list_females<-lapply(names(data_list_females), function(x) cor(as.matrix(da
 names(corr_list_females)<-levels(d$population)
 ```
 
+## From these correlation matrices, make networks
 ```{r}
 nets_male=lapply(corr_list_males, function(x) {
   absmat=abs(x)
@@ -712,8 +657,10 @@ nets_female=lapply(corr_list_females, function(x) {
 })
 ```
 
+Here, we filter out the lowest 20% of edges and then run fast-greedy community detection on that filtered network. Save which cluster each trait was assigned to, and for each pair of traits, save whether they were assigned to the same module or not into a 'co-membership matrix'. 
+
 ```{r}
-## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
+## removing lower 20% of correlations. 
 clusters_male=lapply(nets_male, function(x) {
   g=delete.edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
   cluster_fast_greedy(g, weights=E(g)$weight)
@@ -731,22 +678,26 @@ memberships_female=lapply(clusters_female, membership)
 comembers_female=lapply(memberships_female, function(x) outer(x, x, "==")+0)
 ```
 
+## Now, for each sex, stack the co-membership matrix across all populations to form a 3-dimensional array.
+
 ```{r}
-library(abind)
 comembers_male_array=abind(comembers_male, along=3)
 comembers_female_array=abind(comembers_female, along=3)
+```
 
+## Sum the co-membership matrices along populations. The result is a matrix showing how many times each pair of traits are assigned to the same cluster.
+```{r}
 sum_mat_male=apply(comembers_male_array, c(1,2), sum)
-sum_mat_male
 
 sum_mat_female=apply(comembers_female_array, c(1,2), sum)
 ```
 
+## Plot Figure 4A. 
 ```{r}
 map.data_male=data.frame(expand.grid(rownames(sum_mat_male), colnames(sum_mat_male)), expand.grid(sum_mat_male))
 names(map.data_male)=c("Rows", "Columns", "Values")
 
-matrixplot_male=ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) + 
+matrixplot_male=ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) +
   geom_tile() +
   scale_fill_gradient(low="white", high="red") +
   theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank()) 
@@ -761,87 +712,69 @@ matrixplot_female=ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) +
 
 plot_grid(matrixplot_male, matrixplot_female, nrow=1)
 
-
 ```
 
-### Avg correlations
+## Avg correlations within and between modules
+
+First, set up a dummy matrix that assigns traits into module 1 (throat color traits) vs. module 2 (breast/belly/vent color traits).
 ```{r}
 #throat vs. others
 patches=c(rep(1, 3), rep(2, 9))
 same.patch=outer(patches, patches, FUN="==")
-same.patch
+
 patch.names=c("Throat", "Breast-Belly-Vent")
 modules=matrix(nrow=length(patches), ncol=length(patches))
 for(i in 1:2){
   modules[which(patches==i), which(patches==i)] = i
 }
 modules
-#now take the list of correlation matrices for males across populations and calculate average correlation coefficients within modules (1-4) and between modules (originating from module 1-4)
-# mods.list.male=lapply(corr_list_males, function(x) {
-#   diag(x)=NA
-#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-#   wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
-#   wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
-#   btw_mod=mean(abs(x[which(is.na(modules))]))
-#   btw_12=mean(abs(x[1:3, 4:6]))
-#   data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
-# })
+```
 
+We can now use the above matrix as reference to say which pairwise correlations between traits should fall into one of the three categories (1) within module 1, (2) within module 2, or (3) between modules.
+```{r}
 #throat vs. not throat
 mods.list.male=lapply(corr_list_males, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-  wi_mod_both=mean(abs(x[which(is.na(modules)==FALSE)]), na.rm=T)
   btw_mod=mean(abs(x[which(is.na(modules))]))
-  data.frame(wi_mod1, wi_mod2, wi_mod_both, btw_mod)
+  data.frame(wi_mod1, wi_mod2, btw_mod)
 })
 #organize results into dataframe
 mods.dat.male=tibble(bind_rows(mods.list.male))
 mods.dat.male$sex="M"
 mods.dat.male$population=names(corr_list_males)
 
-#now do the same for female
-# mods.list.female=lapply(corr_list_females, function(x) {
-#   diag(x)=NA
-#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-#   wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
-#   wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
-#   btw_mod=mean(abs(x[which(is.na(modules))]))
-#   btw_12=mean(abs(x[1:3, 4:6]))
-#   data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
-# })
 
-#throat vs. not throat
+#now do the same for females
 mods.list.female=lapply(corr_list_females, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-  wi_mod_both=mean(abs(x[which(modules==1|modules==2)]), na.rm=T)
   btw_mod=mean(abs(x[which(is.na(modules))]))
-  data.frame(wi_mod1, wi_mod2, wi_mod_both, btw_mod)
+  data.frame(wi_mod1, wi_mod2, btw_mod)
 })
 
 mods.dat.female=tibble(bind_rows(mods.list.female))
 mods.dat.female$sex="F"
 mods.dat.female$population=names(corr_list_females)
+```
 
+Now we have estimates of within- and between-module correlations. Let's integrate that within the population data.
 
-#Make data frame for main figure 
+```{r}
+#extract population means of color by sex
 integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright", "b.chrom", "v.chrom", "lat"),mean,na.rm=TRUE) %>% 
   arrange(sex,population) %>% 
   rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom,mean.t.avg.bright=t.avg.bright,mean.r.chrom=r.chrom,mean.r.avg.bright=r.avg.bright, mean.b.chrom=b.chrom, mean.v.chrom=v.chrom, latitude=lat)
 
-
 #now combine the population-level color data with modularity data
 mods.dat=bind_rows(mods.dat.female, mods.dat.male)
+
 integ=mods.dat %>% left_join(., integ0) 
-
-
 ```
 
+We will now simplify this dataset to columns that we need, then reshape this data to 'longer' format so that we can plot it using ggplot. 
 ```{r}
 dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, population) %>% 
   rename(wi_t=wi_mod1, wi_r=wi_mod2, btw=btw_mod) %>%
@@ -853,9 +786,11 @@ dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, popula
   mutate(patch = replace(patch, patch=="t", "within throat")) %>%
   mutate(patch = replace(patch, patch=="r", "within other patches")) %>%
   mutate(patch = replace(patch, patch=="", "between modules")) 
-
+```
 
 ### Build Figure 4C,D
+```{r, fig.width=12, fig.height=4, message=F, warning=F}
+#male plot for throat coloration
 modplot1m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.t.chrom, y=edge.weight, fill=patch, color=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point(alpha=0.8, pch=21, color="black")+
@@ -869,9 +804,11 @@ modplot1m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.t.chrom, y=edge.weight, f
   ggtitle("Male") +
   guides(linetype=FALSE)
 
+#make a version of this that doesn't have the legend
 modplot1m_nolegend=modplot1m + theme(legend.position="none")
 
-modplot1f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.t.chrom, y=edge.weight, color=patch, fill=patch)) +
+#female plot for throat color (no legend)
+modplot1f_nolegend=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.t.chrom, y=edge.weight, color=patch, fill=patch)) +
   geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
   geom_point(alpha=0.8, pch=21, color="black")+
   scale_color_viridis_d(direction=-1)+
@@ -885,45 +822,20 @@ modplot1f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.t.chrom, y=edge.weight, c
   ggtitle("Female") +
   guides(linetype=FALSE)
 
-
-modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, color=patch, fill=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
-  geom_point(alpha=0.8, pch=21, color="black")+
-  scale_color_viridis_d(direction=-1)+
-  scale_fill_viridis_d(direction=-1)+
-  theme_cowplot() +
-  ylim(0,0.7) +
-  ylab("Average edge weight") +
-  xlab("Average breast chroma of population") +
-  theme(legend.position="none") +
-  ggtitle("Male") +
-  guides(linetype=FALSE) 
-
-modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, color=patch, fill=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
-  geom_point(alpha=0.8, pch=21, color="black")+
-  scale_color_viridis_d(direction=-1)+
-  scale_fill_viridis_d(direction=-1)+
-  theme_cowplot() +
-  ylim(0,0.7) +
-  ylab("Average edge weight") +
-  xlab("Average breast chroma of population") +
-  theme(legend.position="none") +
-  ggtitle("Female") +
-  guides(linetype=FALSE) 
-
+#get the legend
 legend_plot=get_legend(modplot1m)
 
-plot_grid(modplot1m_nolegend, modplot2m, NULL, modplot1f, modplot2f, legend_plot, nrow=2, rel_widths=c(2,2,1))
+plot_grid(modplot1m_nolegend, modplot1f_nolegend,  legend_plot, nrow=1, rel_widths=c(2,2,1))
 
 ```
 
+# Phenotype Network Plots (seen in Figure 2)
+
+Custom function for subsetting data & getting filtered correlation matrix.
+These plots will have the same layout so that each trait shows up in the same place for all networks. The nodes will be colored based on assignments into clusters (i.e., using the same method as seen in the modularity analysis section 1).
+
 
 ```{r}
-## phenotype network plots
-
-
-#Define f(x) for subsetting data & getting filtered correlation matrix
 get_pop_cormat <- function(pop,which_sex,traits){
   d_cor<- d %>% 
     filter(population==pop & sex==which_sex) %>% 
@@ -932,13 +844,16 @@ get_pop_cormat <- function(pop,which_sex,traits){
   d_cor[diag(d_cor)]<-NA
   
   #Filter algorithm
-  # Here, simply ≥|0.3|
-  d_cor_bad_indx<-which(abs(d_cor)<0.3)
+  # Here, simply ≥|0.2|
+  d_cor_bad_indx<-which(abs(d_cor)<0.2)
   d_cor[d_cor_bad_indx]<-0
   
   d_cor
 }
+```
 
+Network plotting function using `qgraph` and also define network layout to follow the hypothetical plot in Figure 1.
+```{r}
 Q<-function(COR,lab.col="black",lab.scale=T,lab.font=2,lay="spring",...){
   G<-qgraph(COR,diag=F,fade=F,label.color=lab.col,label.font=lab.font,label.scale=lab.scale,label.norm="0000",mar=c(4,7,7,4),...)
   return(G)}
@@ -960,34 +875,26 @@ net_layout=layout=matrix(c(1,3,
                            1,1
 ), byrow = T, ncol=2)
 
+```
 
-
+Set up parameters for trait means for each sex/population, and what the trait labels and shapes are. 
+```{r}
 rawmeansM<-d %>% group_by(population) %>% filter(sex=="M") %>% summarise_at(traits_col,mean,na.rm=T) 
 
 rawmeansF<-d %>% group_by(population) %>% filter(sex=="F") %>% summarise_at(traits_col,mean,na.rm=T)
 
-traits_col
+
 t.lab=c("TBri", "THue", "TChr", "RBri", "RHue", "RChr", "BBri", "BHue", "BChr", "VBri", "VHue", "VChr")
 shps=c("triangle", "triangle", "triangle", "circle", "circle", "circle", "square", "square", "square", "diamond", "diamond", "diamond")
 
 pops=unique(d$population)
-### Generate male networks figure
-#png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
 ```
 
-
+### Plot networks for males for all populations
 ```{r, fig.height=12, fig.width=10}
 par(mfrow=c(7,4),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
-#Calculate quantiles for each population's color values to color nodes
-scalarM<-sapply(names(rawmeansM)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansM[,x]),q=50 ))) 
-
-
-#make 50 quantiles for matching color scores
-rownames(scalarM)<-rawmeansM$population
-scalarM[,c(1:2,4:5,7:8,10:11)] <-51- scalarM[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
-#define color ramp with 50 gradations
-#nodepal<-colorRampPalette(c("#FFFFCC","#CC6600"),interpolate="spline")(50) 
+#color palette
 nodepal=brewer.pal(5,"YlGnBu")[c(1,5,2,4,3)]
 
 for (i in 1: length(pops)){
@@ -995,30 +902,19 @@ for (i in 1: length(pops)){
   mat<-get_pop_cormat(cur_pop,"M",traits_col)
   g=graph_from_adjacency_matrix(abs(mat), diag=FALSE, weighted=T, mode="undirected")
   nodecolor=nodepal[membership(cluster_fast_greedy(g))]
-  #nodecolor<-nodepal[scalarM[as.character(cur_pop),]]
-  # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
+
   Q(abs(mat),color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
   
-  #Add bounding rectangle for Egypt
-  # if(cur_pop=="Egypt"){
-  #   box(which="figure",lwd=3)
-  #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
-  #}
 }
 
 ```
-
+### Plot networks for females for all populations
 ```{r, fig.height=12, fig.width=10}
 par(mfrow=c(7,4),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
-#Calculate quantiles for each population's color values to color nodes
-scalarF<-sapply(names(rawmeansF)[-1],function(x) as.numeric(gtools::quantcut(unlist(rawmeansF[,x]),q=50 ))) 
-#make 50 quantiles for matching color scores
-rownames(scalarF)<-rawmeansF$population
-scalarF[,c(1:2,4:5,7:8,10:11)] <-51- scalarF[,c(1:2,4:5,7:8,10:11)]  #reverse brightness & hue measures so lower values are darker
-#define color ramp with 50 gradations
+#color palette
 nodepal=brewer.pal(5,"YlGnBu")[c(1,5,2,4,3)]
 
 for (i in 1: length(pops)){
@@ -1030,12 +926,7 @@ for (i in 1: length(pops)){
   Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
-  
-  # #Add bounding rectangle for Egypt
-  # if(cur_pop=="Egypt"){
-  #   box(which="figure",lwd=3)
-  #   #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
-  # }
+
 }
 
 ```
