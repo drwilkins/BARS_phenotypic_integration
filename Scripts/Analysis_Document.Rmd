@@ -26,6 +26,7 @@ library(xtable)
 
 ```{r}
 d=read.csv("../Data/data_for_submission.csv")
+
 ```
 
 ## Genomic data

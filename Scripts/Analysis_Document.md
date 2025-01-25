@@ -5,7 +5,7 @@ output:
     toc: true
     toc_depth: 3
     keep_md: true
-date: "updated 01/12/25 "
+date: "updated 01/25/25 "
 ---
 
 ***
@@ -27,6 +27,7 @@ library(xtable)
 
 ``` r
 d=read.csv("../Data/data_for_submission.csv")
+d=d%>%dplyr::select(band, population, year, sex, tidyselect::starts_with("t."), starts_with("r."), starts_with("b."), starts_with("v"), lat, long)
 ```
 
 ## Genomic data

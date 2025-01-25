@@ -345,8 +345,9 @@ boot_analy <- function(df = NULL,
 # d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>%
 #   mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>%
 #   distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
-# 
-# write.csv(d, "Data/data_for_submission.csv")
+#d=d%>%dplyr::select(band, population, year, sex, tidyselect::starts_with("t."), starts_with("r."), starts_with("b."), starts_with("v"), lat, long)
+
+write.csv(d, "Data/data_for_submission.csv")
 
 # RUNNING THE BOOTSTRAP PROCEDURE
 

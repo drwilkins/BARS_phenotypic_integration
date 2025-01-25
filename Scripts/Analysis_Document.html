@@ -351,7 +351,7 @@ display: none;
 <h1 class="title toc-ignore">Supplemental R Script for Shizuka et al.,
 Global analysis in a widespread songbird reveals that phenotypic
 integration and modularity evolve along with plumage coloration</h1>
-<h4 class="date">updated 01/12/25</h4>
+<h4 class="date">updated 01/25/25</h4>
 
 </div>
 
@@ -435,7 +435,8 @@ library(xtable)</code></pre>
 <h1>Source Data</h1>
 <div id="plumage-data" class="section level2">
 <h2>Plumage data</h2>
-<pre class="r"><code>d=read.csv(&quot;../Data/data_for_submission.csv&quot;)</code></pre>
+<pre class="r"><code>d=read.csv(&quot;../Data/data_for_submission.csv&quot;)
+d=d%&gt;%dplyr::select(band, population, year, sex, tidyselect::starts_with(&quot;t.&quot;), starts_with(&quot;r.&quot;), starts_with(&quot;b.&quot;), starts_with(&quot;v&quot;), lat, long)</code></pre>
 </div>
 <div id="genomic-data" class="section level2">
 <h2>Genomic data</h2>
