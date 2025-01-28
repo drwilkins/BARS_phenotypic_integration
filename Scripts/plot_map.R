@@ -29,6 +29,6 @@ ggplot(pop_location) +borders("world", colour="black", fill="gray90") +
   ylim(0,90) +
   geom_point(aes(x=pop.long, y=pop.lat), pch=21, fill="red", alpha=0.8, size=4) +
   labs(y="Latitude", x="Longitude") +
-  geom_label(data=pop_location %>% filter(population=="baotu"|population=="morocco"|population=="taiwan"), aes(label=population, x=pop.long, y=pop.lat), nudge_y=-5) 
+  geom_label(data=pop_location %>% filter(population=="baotu"|population=="morocco"|population=="taiwan"|population=="zakaltoose"|population=="mixed.barns"|population=="narin.talacha"), aes(label=population, x=pop.long, y=pop.lat), nudge_y=-5) 
 
 ggsave("figs/Map_samplesites.png", width=10, height=4)

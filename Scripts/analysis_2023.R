@@ -415,7 +415,7 @@ cor.test(d_agg %>% dplyr::filter(sex=="F") %>% pull(avg_t_chrom),
 res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 
 ##Dai's link
-# res<-readRDS("/Users/daishizuka/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
 
 # res_no_hyb <-boot_analy(
 #   df = d %>% filter(hybrid_zone=="no"),
@@ -459,9 +459,26 @@ d_phen_M_pop_means <-
   summarise(across(where(is.numeric),  ~mean(.x, na.rm = T))) %>% 
   arrange(desc(PINT.c))
 
+# d_phen_M_pop_vars <-
+#   d_phen_M %>% 
+#   select(population, location, sex, zone, all_of(traits_col), PINT.c) %>% 
+#   group_by(population, zone, location, sex) %>% 
+#   summarise(across(starts_with("r."),  ~var(.x, na.rm = T))) 
+# 
+# d_phen_M_pop_means_vars=left_join(d_phen_M_pop_means, d_phen_M_pop_vars, by=join_by(population, zone, location, sex))
+# 
+# ggplot(d_phen_M_pop_means_vars, aes(x=r.chrom.y, y=PINT.c, color=zone)) +
+#   geom_point()
+# 
+# summary(lm(PINT.c~r.chrom.x, data=d_phen_M_pop_means_vars))
+# 
+# cor.test(d_phen_M_pop_means_vars$t.chrom.x, d_phen_M_pop_means_vars$t.chrom.y)
+
 # Run main analysis with lm instead of correlation ------------------------
 boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
+
 boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
+
 boot_both<-rbind(boot_f,boot_m)
 lm_res_f<- pbapply::pblapply(1:max(boot_f$boot_i), function(i) {
   pops_boot_i <- boot_f %>% filter(boot_i == i)
