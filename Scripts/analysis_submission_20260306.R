@@ -1,5 +1,5 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer, pheatmap)
 #remotes::install_github("galacticpolymath/galacticEdTools")
 #require(galacticEdTools)
 
@@ -347,7 +347,7 @@ boot_analy <- function(df = NULL,
 #   distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
 #d=d%>%dplyr::select(band, population, year, sex, tidyselect::starts_with("t."), starts_with("r."), starts_with("b."), starts_with("v"), lat, long)
 
-write.csv(d, "Data/data_for_submission.csv")
+#write.csv(d, "Data/data_for_submission.csv")
 
 # RUNNING THE BOOTSTRAP PROCEDURE
 
@@ -651,11 +651,13 @@ nets_female=lapply(corr_list_females, function(x) {
 ## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
 clusters_male=lapply(nets_male, function(x) {
   g=delete.edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
+  #g=x
   cluster_fast_greedy(g, weights=E(g)$weight)
 })
 
 clusters_female=lapply(nets_female, function(x) {
   g=delete.edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
+  #g=x
   cluster_fast_greedy(g, weights=E(g)$weight)
 })
 
@@ -695,10 +697,7 @@ plot_grid(matrixplot_male, matrixplot_female, nrow=1)
 
 ###Add hierarchical clustering
 
-
-?heatmap
-
-map.data_male
+map.data_male$Values=map.data_male$Values/28
 
 x_hue_male=map.data_male[-c(grep("hue",map.data_male$Rows), grep("hue", map.data_male$Columns)),]
 
@@ -706,12 +705,25 @@ mat_male=base::as.matrix(pivot_wider(map.data_male%>%filter(), names_from = Rows
 rownames(mat_male)=colnames(mat_male)
 mat_male
 
+map.data_female$Values=map.data_female$Values/28
 mat_female=base::as.matrix(pivot_wider(map.data_female, names_from = Rows, values_from = Values)[,-1])
 rownames(mat_female)=colnames(mat_female)
 mat_female
 
-heatmap(mat_male)
-heatmap(mat_female)
+dist_cor <- function(x) as.dist(1-x)
+hclust_complete <- function(x) hclust(x, method = "complete")
+
+colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
+heatmap(mat_male, scale="none", col=colors)
+heatmap(mat_female, scale="none", col=colors)
+
+pdf("figs/heatmap_v2.pdf", width=12, height=8)
+heatmap((mat_male+mat_female)/2, scale="none", col=colors)
+legend(x="bottomright", legend=seq(0,1,0.2), fill=brewer.pal(n = 7, name = "YlOrRd"))
+dev.off()
+
+pheatmap(mat_male, clustering_method="average", color=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100))
+pheatmap(mat_female, clustering_method="average", color=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100))
 
 #throat vs. others
 patches=c(rep(1, 3), rep(2, 9))
@@ -723,17 +735,7 @@ for(i in 1:2){
   modules[which(patches==i), which(patches==i)] = i
 }
 modules
-#now take the list of correlation matrices for males across populations and calculate average correlation coefficients within modules (1-4) and between modules (originating from module 1-4)
-# mods.list.male=lapply(corr_list_males, function(x) {
-#   diag(x)=NA
-#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-#   wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
-#   wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
-#   btw_mod=mean(abs(x[which(is.na(modules))]))
-#   btw_12=mean(abs(x[1:3, 4:6]))
-#   data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
-# })
+
 
 #throat vs. not throat
 mods.list.male=lapply(corr_list_males, function(x) {
@@ -749,18 +751,6 @@ mods.dat.male=tibble(bind_rows(mods.list.male))
 mods.dat.male$sex="M"
 mods.dat.male$population=names(corr_list_males)
 
-#now do the same for female
-# mods.list.female=lapply(corr_list_females, function(x) {
-#   diag(x)=NA
-#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-#   wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
-#   wi_mod4=mean(abs(x[which(modules==4)]), na.rm=T)
-#   btw_mod=mean(abs(x[which(is.na(modules))]))
-#   btw_12=mean(abs(x[1:3, 4:6]))
-#   data.frame(wi_mod1, wi_mod2, wi_mod3, wi_mod4, btw_mod, btw_12)
-# })
-
 #throat vs. not throat
 mods.list.female=lapply(corr_list_females, function(x) {
   diag(x)=NA
@@ -775,7 +765,43 @@ mods.dat.female=tibble(bind_rows(mods.list.female))
 mods.dat.female$sex="F"
 mods.dat.female$population=names(corr_list_females)
 
+# ######ALTERNATIVE: THROAT + HUE
+# #throat + hue vs. not
+# trait_names=rownames(corr_list_males[[1]])
+# mod1_rows=c(grep("t.", trait_names),grep("hue", trait_names))
+# mod2_rows=which(1:12 %in% mod1_rows==FALSE)
+# modules=matrix(nrow=12, ncol=12)
+# modules[mod1_rows, mod1_rows]=1
+# modules[mod2_rows, mod2_rows]=2
+# modules
 
+mods.list.male=lapply(corr_list_males, function(x) {
+  diag(x)=NA
+  wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
+  wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+  wi_mod_both=mean(abs(x[which(is.na(modules)==FALSE)]), na.rm=T)
+  btw_mod=mean(abs(x[which(is.na(modules))]))
+  data.frame(wi_mod1, wi_mod2, wi_mod_both, btw_mod)
+})
+#organize results into dataframe
+mods.dat.male=tibble(bind_rows(mods.list.male))
+mods.dat.male$sex="M"
+mods.dat.male$population=names(corr_list_males)
+
+mods.list.female=lapply(corr_list_females, function(x) {
+  diag(x)=NA
+  wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
+  wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+  wi_mod_both=mean(abs(x[which(modules==1|modules==2)]), na.rm=T)
+  btw_mod=mean(abs(x[which(is.na(modules))]))
+  data.frame(wi_mod1, wi_mod2, wi_mod_both, btw_mod)
+})
+
+mods.dat.female=tibble(bind_rows(mods.list.female))
+mods.dat.female$sex="F"
+mods.dat.female$population=names(corr_list_females)
+
+####
 #Make data frame for main figure 
 integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright", "b.chrom", "v.chrom", "lat"),mean,na.rm=TRUE) %>% 
   arrange(sex,population) %>% 
