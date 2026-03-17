@@ -609,7 +609,7 @@ G_t_simple<-res$mean_traits %>%  mutate(sex=factor(sex, levels=c("M", "F"))) %>%
   theme(strip.text=element_blank(),axis.text=element_text(size=14), axis.title=element_text(size=16), panel.grid.minor=element_blank(), panel.grid.major=element_blank()) 
 
 plot_grid(G_r_simple, G_t_simple, nrow=2)
-#ggsave("figs/Fig3_maleonleft.pdf")
+#ggsave("figs/Fig3_v2.pdf", width=8, height=8)
 
 
 
