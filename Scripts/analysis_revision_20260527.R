@@ -680,13 +680,13 @@ NMI(as.character(memberships_male_0.2[[1]]), as.character(memberships_male_0.3[[
 
 ## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
 clusters_male=lapply(nets_male, function(x) {
-  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.1)))
+  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
   #g=x
   cluster_fast_greedy(g, weights=E(g)$weight)
 })
 
 clusters_female=lapply(nets_female, function(x) {
-  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.1)))
+  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
   #g=x
   cluster_fast_greedy(g, weights=E(g)$weight)
 })
@@ -744,8 +744,10 @@ dist_cor <- function(x) as.dist(1-x)
 hclust_complete <- function(x) hclust(x, method = "complete")
 
 colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
-heatmap(mat_male, scale="none", col=colors)
-heatmap(mat_female, scale="none", col=colors)
+heatmap(mat_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+heatmap(mat_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+
+
 # 
 # pdf("figs/heatmap_v2.pdf", width=12, height=8)
 # heatmap((mat_male+mat_female)/2, scale="none", col=colors)
@@ -931,7 +933,20 @@ summary(r_int_f)
 
 ###alternative model
 #throat vs. others except hue
-patches=c(rep(1, 3), rep(2, 3), rep(3,6))
+# 1 = throat, 2 = hue, 3 = others
+patches=c(rep(1, 3), 3, 2, 3, 3, 2, 3, 3, 2, 3)
+same.patch=outer(patches, patches, FUN="==")
+same.patch
+patch.names=c("Throat", "Breast-Belly-Vent")
+modules=matrix(nrow=length(patches), ncol=length(patches))
+for(i in 1:3){
+  modules[which(patches==i), which(patches==i)] = i
+}
+modules
+
+#throat + hue vs. others
+# 1 = throat + hue, 2 = others
+patches=c(rep(1, 3), 2, 1, 2, 2, 1, 2, 2, 1, 2)
 same.patch=outer(patches, patches, FUN="==")
 same.patch
 patch.names=c("Throat", "Breast-Belly-Vent")
@@ -944,9 +959,9 @@ modules
 mods.list.male=lapply(corr_list_males, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-  wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
+  wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
   btw_mod=mean(abs(x[is.na(modules)]), na.rm=T)
-  data.frame(wi_mod1, wi_mod3, btw_mod)
+  data.frame(wi_mod1, wi_mod2, btw_mod)
 })
 
 #organize results into dataframe
@@ -954,13 +969,13 @@ mods.dat.male=tibble(bind_rows(mods.list.male))
 mods.dat.male$sex="M"
 mods.dat.male$population=names(corr_list_males)
 
-#throat vs. others except hue
+
 mods.list.female=lapply(corr_list_females, function(x) {
   diag(x)=NA
   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-  wi_mod3=mean(abs(x[which(modules==3)]), na.rm=T)
+  wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
   btw_mod=mean(abs(x[is.na(modules)]), na.rm=T)
-  data.frame(wi_mod1, wi_mod3, btw_mod)
+  data.frame(wi_mod1, wi_mod2, btw_mod)
 })
 
 mods.dat.female=tibble(bind_rows(mods.list.female))
@@ -980,8 +995,8 @@ mods.dat=bind_rows(list(mods.dat.female, mods.dat.male))
 #now combine the population-level color data with modularity data
 integ=mods.dat%>% left_join(., integ0) 
 
-dat2=integ %>% select(wi_mod1, wi_mod3, btw_mod, ends_with("chrom"), sex, population) %>% 
-  rename(wi_t=wi_mod1, wi_r=wi_mod3, btw=btw_mod) %>%
+dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, population) %>% 
+  rename(wi_t=wi_mod1, wi_r=wi_mod2, btw=btw_mod) %>%
   pivot_longer(-c(starts_with("mean"),sex, population), names_to="edge.type", values_to="edge.weight") %>%
   mutate(wi_btw=str_sub(edge.type, start=1, end=2)) %>%
   mutate(wi_btw = replace(wi_btw, wi_btw=="wi", 1)) %>%
@@ -1176,4 +1191,19 @@ for (i in 1: length(pops)){
   # }
 }
 
+### revision analyses:
 
+#import pairwise relatedness for population
+
+pairwise_rel=read.csv("Data/pairwise_relatedness_pop.csv") %>% pivot_wider(names_from=pop2,values_from = mean_relatedness_phi)
+
+pairwise_rel=read.csv("Data/pairwise_relatedness_pop.csv")
+
+xt=as.matrix(xtabs(mean_relatedness_phi ~ pop1 + pop2, data = pairwise_rel))
+
+#run the models for first analysis using population as random effect 
+lm_results_r.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lmer(PINT.c~avg_r.chrom+ weighted_Fst+as.factor(sex) + 1|population,data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
+}) %>% bind_rows
