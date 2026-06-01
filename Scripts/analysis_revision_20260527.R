@@ -356,6 +356,15 @@ boot_analy <- function(df = NULL,
 d=read.csv("Data/data_for_submission.csv")
 d$population<-as.factor(d$population)
 d$sex<-as.factor(d$sex)
+
+#make table of sample sizes
+
+pop_info_n=d %>% group_by(population, sex) %>% summarise(n=n()) %>% pivot_wider(id_cols=population, names_from=sex, values_from=n)
+
+pop_info_latlong= d %>% group_by(population) %>% summarise(lat=first(lat), long=first(long))
+
+pop_info_all=pop_info_latlong %>% left_join(pop_info_n)
+write.csv(pop_info_all, "pop_info.csv")
 # VERY Time consuming!
 # Uncomment if you want to run the full 10e4 bootstraps
 
@@ -747,6 +756,7 @@ colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
 heatmap(mat_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 heatmap(mat_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
+kmeans(mat_male+mat_female, 4)
 
 # 
 # pdf("figs/heatmap_v2.pdf", width=12, height=8)
