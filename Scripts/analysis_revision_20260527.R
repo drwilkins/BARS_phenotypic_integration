@@ -315,37 +315,37 @@ boot_analy <- function(df = NULL,
 
 # 
 # 1. Setup -------------------------------------------------------------------
-# #Import all data
-# d00<-read_csv("Data/all_populations.csv")
-# nrow(d00)
-# 
-# traits<-c('tail.mean','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r.chrom','b.avg.bright','b.hue','b.chrom','v.avg.bright','v.hue','v.chrom')
-# #Just the color traits
-# traits_col <- traits[-c(1)]
-# 
-# #limit analysis to pops with at least N samples
-# (pop_summary<-d00 %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame())
-# 
-# #Let's say 12 is our minimum number of each sex
-# min_samples<-12
-# pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
-# pops_w_20_samples<-pop_summary %>% filter(n_F>=20 & n_M>=20)
-# nrow(pops_w_min_samples) #28 populations with at least 12 individuals
-# d0<-d00 %>% filter(population %in% pops_w_min_samples$population)
-# nrow(d0)
-# d0$population<-as.factor(d0$population)
-# d0$sex<-as.factor(d0$sex)
-# 
-# #Let's only work with Colorado samples from 2008 (before many experiments)
-# d<-d0 %>% filter(population!="colorado"|population=="colorado"&year==2008)
-# #Now CO has a more comparable N to other pops
-# d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
-# 
-# #Export info on just the populations we're using &rename Taiwan to Taipei, Taiwan for consistencey
-# d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>%
-#   mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>%
-#   distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
-#d=d%>%dplyr::select(band, population, year, sex, tidyselect::starts_with("t."), starts_with("r."), starts_with("b."), starts_with("v"), lat, long)
+#Import all data
+d00<-read_csv("Data/all_populations.csv")
+nrow(d00)
+
+traits<-c('tail.mean','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r.chrom','b.avg.bright','b.hue','b.chrom','v.avg.bright','v.hue','v.chrom')
+#Just the color traits
+traits_col <- traits[-c(1)]
+
+#limit analysis to pops with at least N samples
+(pop_summary<-d00 %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame())
+
+#Let's say 12 is our minimum number of each sex
+min_samples<-12
+pops_w_min_samples<-pop_summary %>% filter(n_F>=min_samples & n_M>=min_samples)
+pops_w_20_samples<-pop_summary %>% filter(n_F>=20 & n_M>=20)
+nrow(pops_w_min_samples) #28 populations with at least 12 individuals
+d0<-d00 %>% filter(population %in% pops_w_min_samples$population)
+nrow(d0)
+d0$population<-as.factor(d0$population)
+d0$sex<-as.factor(d0$sex)
+
+#Let's only work with Colorado samples from 2008 (before many experiments)
+d<-d0 %>% filter(population!="colorado"|population=="colorado"&year==2008)
+#Now CO has a more comparable N to other pops
+d %>% group_by(population,sex) %>%  summarise(n=n()) %>%  pivot_wider(names_from=sex,values_from=n,names_prefix = "n_") %>% mutate(n_TOT=n_F+n_M) %>% as.data.frame()
+
+#Export info on just the populations we're using &rename Taiwan to Taipei, Taiwan for consistencey
+d %>% select(population,location,year,lat,long,hybrid_zone,zone) %>%
+  mutate(location=case_when(location=="Taiwan"~"Taipei, Taiwan",.default=location)) %>%
+  distinct(population,.keep_all = T) %>% write_csv(.,file="Data/populations_analyzed.csv")
+d=d%>%dplyr::select(band, population, year, sex, tidyselect::starts_with("t."), starts_with("r."), starts_with("b."), starts_with("v"), lat, long)
 
 #write.csv(d, "Data/data_for_submission.csv")
 
@@ -364,7 +364,10 @@ pop_info_n=d %>% group_by(population, sex) %>% summarise(n=n()) %>% pivot_wider(
 pop_info_latlong= d %>% group_by(population) %>% summarise(lat=first(lat), long=first(long))
 
 pop_info_all=pop_info_latlong %>% left_join(pop_info_n)
-write.csv(pop_info_all, "pop_info.csv")
+pop_info_all
+
+#write.csv(pop_info_all, "pop_info.csv")
+
 # VERY Time consuming!
 # Uncomment if you want to run the full 10e4 bootstraps
 
@@ -409,6 +412,34 @@ d_gen<-left_join(d_gen,fst[,c("population","weighted_Fst")],by="population") %>%
 d_gen_pops<-d_gen %>% distinct(population) %>% unlist
 d_gen_m<-d_gen %>% filter(sex=="M")
 d_gen_f<-d_gen %>% filter(sex=="F")
+
+####Run phylogenetic multilevel model without bootstrap
+library(brms)
+gr_pair=read.csv("Data/pairwise_distance_pop.csv")
+all.popnames=unique(c(gr_pair$pop1, gr_pair$pop2))
+dat_self=data.frame(pop1=all.popnames, pop2=all.popnames, mean.gen.dist=0)
+gr_dat=full_join(gr_pair, dat_self) %>% arrange(pop1, pop2)
+gr_pivot=gr_dat %>% pivot_wider(values_from=mean.gen.dist, names_from=pop2)
+gr_as_matrix=as.matrix(gr_pivot[,-1])
+gr_as_matrix[is.na(gr_as_matrix)]=0
+grm=gr_as_matrix+t(gr_as_matrix)
+grm=1-grm #take the inverse of the distance matrix. This runs better. 
+
+#the population names in the genetic distance matrix does not match the population names in the bootstrap dataset. Match them up here. 
+name_corrections=str_replace_all(colnames(grm), c("alzamay"="rt.zone", "boatu"="baotu", "khingui"="rt.zone2", "marrakesh"="morocco", "narin-talacha"="narin.talacha", "takecha"="mixed.barns", "yekatarinburg"="yekaterinburg"))
+
+colnames(grm)=rownames(grm)=name_corrections
+
+#model without population covariance as random effect
+mod_simp<-brm(PINT.c~avg_r.chrom+ as.factor(sex),data=d_gen %>% filter(boot_i==1))
+
+#phylogenetic multilevel model
+mod_mm<-brm(PINT.c~avg_r.chrom+ as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))
+
+mod_simp
+mod_mm
+
+
 
 #run the linear models for each color patch using the bootstrap results and calculate average and CI of estimates. 
 # #Run all of the models and save the results so that we don't have to run them each time.
