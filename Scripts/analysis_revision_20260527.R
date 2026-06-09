@@ -698,6 +698,9 @@ nets_female=lapply(corr_list_females, function(x) {
 
 
 ### Supplemental material: assess the robustness of module id with different thresholds
+
+library(dynamicTreeCut)
+
 memberships_male_0.1=lapply(nets_male, function(x) {
   g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.1)))
   #g=x
@@ -797,6 +800,8 @@ heatmap(mat_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust
 
 kmeans(mat_male+mat_female, 4)
 
+cutreeDynamic(hclust(as.dist(1-mat_male), method="average"), method="tree", minClusterSize = 3)
+rownames(mat_male)
 # 
 # pdf("figs/heatmap_v2.pdf", width=12, height=8)
 # heatmap((mat_male+mat_female)/2, scale="none", col=colors)
