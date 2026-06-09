@@ -432,17 +432,23 @@ colnames(grm)=rownames(grm)=name_corrections
 
 #model without population covariance as random effect
 mod_simp<-brm(PINT.c~avg_r.chrom*as.factor(sex),data=d_gen %>% filter(boot_i==1))
+mod_simp
 
 #phylogenetic multilevel model
-mod_mm<-brm(PINT.c~avg_r.chrom*as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))
-
-mod_simp
+mod_mm<-brm(PINT.c~avg_r.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))
 mod_mm
+prior_summary(mod_mm)
 
 brm_results_r.chrom <- pbapply::pblapply(1:5, function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-brm(PINT.c~avg_r.chrom+ as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))})
+  mod<-brm(PINT.c~avg_r.chrom*as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))})
 
+
+mod_mm_male<-brm(PINT.c~avg_r.chrom + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1&sex=="M"), data2=list(grm=grm), control = list(adapt_delta = 0.95))
+mod_mm_male
+
+mod_mm_female<-brm(PINT.c~avg_r.chrom + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1&sex=="F"), data2=list(grm=grm), control = list(adapt_delta = 0.95))
+mod_mm_female
 #run the linear models for each color patch using the bootstrap results and calculate average and CI of estimates. 
 # #Run all of the models and save the results so that we don't have to run them each time.
 # 
