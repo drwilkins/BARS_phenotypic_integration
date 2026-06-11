@@ -732,7 +732,7 @@ nets_female=lapply(corr_list_females, function(x) {
 ###########
 
 #function to create matrix plots with hierarchical clustering
-make_matplot=function(net.list, threshold=0.2) {
+make_module_mat=function(net.list, threshold=0.2) {
   clusters=lapply(net.list, function(x) {
     g=delete_edges(x, which(E(x)$weight<threshold))
     #g=x
@@ -747,16 +747,24 @@ make_matplot=function(net.list, threshold=0.2) {
   map.data$Values=map.data$Values/length(net.list)
   mat=base::as.matrix(pivot_wider(map.data%>%filter(), names_from = Rows, values_from = Values)[,-1])
   rownames(mat)=colnames(mat)
-  dist_cor <- function(x) as.dist(1-x)
-  hclust_complete <- function(x) hclust(x, method = "complete")
-  colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
-  heatmap(mat, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+  mat
 }
+dist_cor <- function(x) as.dist(1-x)
+hclust_complete <- function(x) hclust(x, method = "complete")
+colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
+
+mat1=make_module_mat(nets_male, threshold=0.1)
+p1=heatmap(mat1, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+
+mat2=make_module_mat(nets_male, threshold=0.2)
 
 
-plot.a=make_matplot(net.list=nets_male, threshold=0.1)
-make_matplot(net.list=nets_male, threshold=0.2)
-make_matplot(net.list=nets_male, threshold=0.3)
+p2=heatmap(mat2, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+
+mat3=make_module_mat(nets_male, threshold=0.3)
+
+library(vegan)
+mantel(mat1, mat3)
 
 
 ## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
