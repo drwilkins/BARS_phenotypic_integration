@@ -697,50 +697,93 @@ nets_female=lapply(corr_list_females, function(x) {
 })
 
 
-### Supplemental material: assess the robustness of module id with different thresholds
 
-library(dynamicTreeCut)
-
-memberships_male_0.1=lapply(nets_male, function(x) {
-  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.1)))
-  #g=x
-  clu=cluster_fast_greedy(g, weights=E(g)$weight)
-  membership(clu)
-})
-
-memberships_male_0.2=lapply(nets_male, function(x) {
-  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
-  #g=x
-  clu=cluster_fast_greedy(g, weights=E(g)$weight)
-  membership(clu)
-})
-
-memberships_male_0.3=lapply(nets_male, function(x) {
-  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.3)))
-  #g=x
-  clu=cluster_fast_greedy(g, weights=E(g)$weight)
-  membership(clu)
-})
-
-mutinformation(as.character(memberships_male_0.2[[1]]), as.character(memberships_male_0.3[[1]])) #this doesn't work because the module id (number) is arbitrary and can be different...
-
-library(aricode)
-NMI(as.character(memberships_male_0.2[[1]]), as.character(memberships_male_0.3[[1]]))
+# 
+# ### Supplemental material: assess the robustness of module id with different thresholds
+# 
+# library(dynamicTreeCut)
+# 
+# memberships_male_0.1=lapply(nets_male, function(x) {
+#   g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.1)))
+#   #g=x
+#   clu=cluster_fast_greedy(g, weights=E(g)$weight)
+#   membership(clu)
+# })
+# 
+# memberships_male_0.2=lapply(nets_male, function(x) {
+#   g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
+#   #g=x
+#   clu=cluster_fast_greedy(g, weights=E(g)$weight)
+#   membership(clu)
+# })
+# 
+# memberships_male_0.3=lapply(nets_male, function(x) {
+#   g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.3)))
+#   #g=x
+#   clu=cluster_fast_greedy(g, weights=E(g)$weight)
+#   membership(clu)
+# })
+# 
+# mutinformation(as.character(memberships_male_0.2[[1]]), as.character(memberships_male_0.3[[1]])) #this doesn't work because the module id (number) is arbitrary and can be different...
+# 
+# library(aricode)
+# NMI(as.character(memberships_male_0.2[[1]]), as.character(memberships_male_0.3[[1]]))
 
 ###########
 
+#function to create matrix plots with hierarchical clustering
+make_matplot=function(net.list, threshold=0.2) {
+  clusters=lapply(net.list, function(x) {
+    g=delete_edges(x, which(E(x)$weight<threshold))
+    #g=x
+    cluster_fast_greedy(g, weights=E(g)$weight)
+  })
+  memberships=lapply(clusters, membership)
+  comembers=lapply(memberships, function(x) outer(x, x, "==")+0)
+  comembers_array=abind(comembers, along=3)
+  sum_mat=apply(comembers_array, c(1,2), sum)
+  map.data=data.frame(expand.grid(rownames(sum_mat), colnames(sum_mat)), expand.grid(sum_mat))
+  names(map.data)=c("Rows", "Columns", "Values")
+  map.data$Values=map.data$Values/length(net.list)
+  mat=base::as.matrix(pivot_wider(map.data%>%filter(), names_from = Rows, values_from = Values)[,-1])
+  rownames(mat)=colnames(mat)
+  dist_cor <- function(x) as.dist(1-x)
+  hclust_complete <- function(x) hclust(x, method = "complete")
+  colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
+  heatmap(mat, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+}
+
+
+plot.a=make_matplot(net.list=nets_male, threshold=0.1)
+make_matplot(net.list=nets_male, threshold=0.2)
+make_matplot(net.list=nets_male, threshold=0.3)
+
+
 ## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
 clusters_male=lapply(nets_male, function(x) {
-  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
+  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.3)))
   #g=x
   cluster_fast_greedy(g, weights=E(g)$weight)
 })
 
 clusters_female=lapply(nets_female, function(x) {
-  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.2)))
+  g=delete_edges(x, which(E(x)$weight<quantile(E(x)$weight, probs=0.3)))
   #g=x
   cluster_fast_greedy(g, weights=E(g)$weight)
 })
+
+clusters_male=lapply(nets_male, function(x) {
+  g=delete_edges(x, which(E(x)$weight<0.3))
+  #g=x
+  cluster_fast_greedy(g, weights=E(g)$weight)
+})
+
+clusters_female=lapply(nets_female, function(x) {
+  g=delete_edges(x, which(E(x)$weight<0.3))
+  #g=x
+  cluster_fast_greedy(g, weights=E(g)$weight)
+})
+
 
 memberships_male=lapply(clusters_male, membership)
 comembers_male=lapply(memberships_male, function(x) outer(x, x, "==")+0)
@@ -761,20 +804,20 @@ sum_mat_female=apply(comembers_female_array, c(1,2), sum)
 map.data_male=data.frame(expand.grid(rownames(sum_mat_male), colnames(sum_mat_male)), expand.grid(sum_mat_male))
 names(map.data_male)=c("Rows", "Columns", "Values")
 
-matrixplot_male=ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) + 
-  geom_tile() +
-  scale_fill_gradient(low="white", high="red") +
-  theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank()) 
+# matrixplot_male=ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) + 
+#   geom_tile() +
+#   scale_fill_gradient(low="white", high="red") +
+#   theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank()) 
 
 map.data_female=data.frame(expand.grid(rownames(sum_mat_female), colnames(sum_mat_female)), expand.grid(sum_mat_female))
 names(map.data_female)=c("Rows", "Columns", "Values")
 
-matrixplot_female=ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) + 
-  geom_tile() +
-  scale_fill_gradient(low="white", high="red") +
-  theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank())
+# matrixplot_female=ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) + 
+#   geom_tile() +
+#   scale_fill_gradient(low="white", high="red") +
+#   theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank())
 
-plot_grid(matrixplot_male, matrixplot_female, nrow=1)
+#plot_grid(matrixplot_male, matrixplot_female, nrow=1)
 
 ###Add hierarchical clustering
 
@@ -798,10 +841,53 @@ colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
 heatmap(mat_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 heatmap(mat_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
-kmeans(mat_male+mat_female, 4)
+heatmap((mat_female+mat_male)/2, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
-cutreeDynamic(hclust(as.dist(1-mat_male), method="average"), method="tree", minClusterSize = 3)
+cutreeDynamicTree(hclust(as.dist(1-(mat_male+mat_female)/2), method="average"), minModuleSize=2)
+
+cutreeDynamicTree(hclust(as.dist(1-mat_male), method="average"), minModuleSize=2)
 rownames(mat_male)
+
+cutreeDynamic(hclust(as.dist(1-mat_female), method="complete"), method="tree", minClusterSize = 1)
+rownames(mat_female)
+
+
+### try using dynamic cut tree for each population instead of fastgreedy
+t.rank=d_gen %>% group_by(population) %>% summarise(mean.t=mean(avg_t.chrom)) %>% mutate(rank=rank(-mean.t))
+
+top_t=which(t.rank$rank<30)
+
+treecut_males_membership=lapply(corr_list_males[top_t], function(x){
+  cutreeDynamicTree(hclust(as.dist(x), method="complete"), minModuleSize = 2)
+})
+
+comembers_treecut_male=lapply(treecut_males_membership, function(x) outer(x, x, "==")+0)
+
+comembers_treecut_male_array=abind(comembers_treecut_male, along=3)
+
+sum_mat_treecut_male=apply(comembers_treecut_male_array, c(1,2), sum)
+rownames(sum_mat_treecut_male)=colnames(sum_mat_treecut_male)=rownames(corr_list_males[[1]])
+
+map.data_treecut_male=data.frame(expand.grid(rownames(sum_mat_treecut_male), colnames(sum_mat_treecut_male)), expand.grid(sum_mat_treecut_male))
+names(map.data_treecut_male)=c("Rows", "Columns", "Values")
+
+map.data_treecut_male$Values=map.data_treecut_male$Values/28
+
+x_hue_treecut_male=map.data_treecut_male[-c(grep("hue",map.data_treecut_male$Rows), grep("hue", map.data_treecut_male$Columns)),]
+
+mat_treecut_male=base::as.matrix(pivot_wider(map.data_treecut_male%>%filter(), names_from = Rows, values_from = Values)[,-1])
+rownames(mat_treecut_male)=colnames(mat_treecut_male)
+mat_treecut_male
+
+dist_cor <- function(x) as.dist(1-x)
+hclust_complete <- function(x) hclust(x, method = "complete")
+
+colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
+heatmap(mat_treecut_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+
+
+
+
 # 
 # pdf("figs/heatmap_v2.pdf", width=12, height=8)
 # heatmap((mat_male+mat_female)/2, scale="none", col=colors)
