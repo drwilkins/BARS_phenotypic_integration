@@ -366,7 +366,8 @@ pop_info_latlong= d %>% group_by(population) %>% summarise(lat=first(lat), long=
 pop_info_all=pop_info_latlong %>% left_join(pop_info_n)
 pop_info_all
 
-#write.csv(pop_info_all, "pop_info.csv")
+#write.csv(pop_info_all, "data/population_info_for_supplement.csv")
+
 
 # VERY Time consuming!
 # Uncomment if you want to run the full 10e4 bootstraps
