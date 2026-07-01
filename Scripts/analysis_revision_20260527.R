@@ -414,6 +414,11 @@ d_gen_pops<-d_gen %>% distinct(population) %>% unlist
 d_gen_m<-d_gen %>% filter(sex=="M")
 d_gen_f<-d_gen %>% filter(sex=="F")
 
+##make a raw dataset with genomic data
+d0_gen<-left_join(d0,fst[,c("population","weighted_Fst")],by="population") %>% select(population,location,sex,PINT,PINT.c,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,weighted_Fst)
+
+
+#######################################################
 ####Run phylogenetic multilevel model without bootstrap
 library(brms)
 gr_pair=read.csv("Data/pairwise_distance_pop.csv")
@@ -431,18 +436,65 @@ name_corrections=str_replace_all(colnames(grm), c("alzamay"="rt.zone", "boatu"="
 
 colnames(grm)=rownames(grm)=name_corrections
 
+#we need to make a dataset with the raw data (i.e., not bootstrapped data)
+#Male data subset by population
+data_list_males<-lapply(levels(d$population),function(x) (subset(d,population==x&sex=="M")))
+names(data_list_males)<-levels(d$population)
+
+#Female data subset by population
+data_list_females<-lapply(levels(d$population),function(x) (subset(d,population==x&sex=="F")))
+names(data_list_females)<-levels(d$population)
+
+#Male correlations by population
+corr_list_males<-lapply(names(data_list_males), function(x) cor(as.matrix(data_list_males[[x]][,traits_col]),method="s",use="pairwise.complete"))
+names(corr_list_males)<-levels(d$population)
+
+#Female correlations by population
+corr_list_females<-lapply(names(data_list_females), function(x) cor(as.matrix(data_list_females[[x]][,traits_col]),method="s",use="pairwise.complete"))
+names(corr_list_females)<-levels(d$population)
+
+pint_list_females=lapply(data_list_females, function(x){
+  tb=na.omit(x[,traits_col])
+  PINT=pint(tb)
+})
+
+pint_list_males=lapply(data_list_males, function(x){
+  tb=na.omit(x[,traits_col])
+  PINT=pint(tb)
+})
+
+pint.c_females=sapply(pint_list_females, function(x) x[[3]])
+pint.c_males=sapply(pint_list_males, function(x) x[[3]])
+
+#Make data frame for main figure (with throat and breast chroma and network density)
+
+integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom", "lat"),mean,na.rm=TRUE) %>% 
+  arrange(sex,population) %>% 
+  rename(avg_t.chrom=t.chrom,avg_r.chrom=r.chrom, latitude=lat)
+
+integ0$PINT.c <- c(pint.c_females, pint.c_males)
+
+integ_gen=integ0 %>% mutate(use=population %in% rownames(grm)) %>% filter(use==TRUE)
+
 #model without population covariance as random effect
-mod_simp<-brm(PINT.c~avg_r.chrom*as.factor(sex),data=d_gen %>% filter(boot_i==1))
+mod_simp<-brm(PINT.c~avg_r.chrom*as.factor(sex),data=integ_gen)
 mod_simp
 
 #phylogenetic multilevel model
-mod_mm<-brm(PINT.c~avg_r.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))
-mod_mm
-prior_summary(mod_mm)
 
-brm_results_r.chrom <- pbapply::pblapply(1:5, function(i) {
-  pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-brm(PINT.c~avg_r.chrom*as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))})
+#with sex x color interaction
+mod_mm_w_int<-brm(PINT.c~avg_r.chrom*as.factor(sex) + (1 | gr(population, cov = grm)),data=integ_gen, data2=list(grm=grm), control = list(adapt_delta = 0.95))
+mod_mm_w_int
+prior_summary(mod_mm_w_int)
+
+#without sex x color interaction
+mod_mm_no_int<-brm(PINT.c~avg_r.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))
+mod_mm_no_int
+prior_summary(mod_mm_no_int)
+
+# brm_results_r.chrom <- pbapply::pblapply(1:5, function(i) {
+#   pops_boot_i <- d_gen %>% filter(boot_i == i)
+#   mod<-brm(PINT.c~avg_r.chrom*as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))})
 
 
 mod_mm_male<-brm(PINT.c~avg_r.chrom + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1&sex=="M"), data2=list(grm=grm), control = list(adapt_delta = 0.95))
@@ -450,6 +502,7 @@ mod_mm_male
 
 mod_mm_female<-brm(PINT.c~avg_r.chrom + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1&sex=="F"), data2=list(grm=grm), control = list(adapt_delta = 0.95))
 mod_mm_female
+
 #run the linear models for each color patch using the bootstrap results and calculate average and CI of estimates. 
 # #Run all of the models and save the results so that we don't have to run them each time.
 # 
@@ -1235,7 +1288,7 @@ get_pop_cormat <- function(pop,which_sex,traits){
   d_cor<- d %>% 
     filter(population==pop & sex==which_sex) %>% 
     select(all_of(traits_col)) %>% 
-    cor(.,use="pairwise.complete",method = "spear")
+    cor(.,use="pairwise.complete",method = "pearson")
   d_cor[diag(d_cor)]<-NA
   
   #Filter algorithm
@@ -1280,7 +1333,7 @@ shps=c("triangle", "triangle", "triangle", "circle", "circle", "circle", "square
 pops=unique(d$population)
 ### Generate male networks figure
 #png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-#pdf("figs/NewFig 2. Male_Networks_modules_all_trial.pdf",width=10,height=14)
+pdf("figs/NewFig 2. Male_Networks_modules_all_trial_pearson.pdf",width=10,height=14)
 par(mfrow=c(7,4),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
