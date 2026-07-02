@@ -468,17 +468,17 @@ pint.c_males=sapply(pint_list_males, function(x) x[[3]])
 
 #Make data frame for main figure (with throat and breast chroma and network density)
 
-integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom", "lat"),mean,na.rm=TRUE) %>% 
+integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom", "b.chrom", "v.chrom", "lat"),mean,na.rm=TRUE) %>% 
   arrange(sex,population) %>% 
-  rename(avg_t.chrom=t.chrom,avg_r.chrom=r.chrom, latitude=lat)
+  rename(avg_t.chrom=t.chrom,avg_r.chrom=r.chrom, avg_b.chrom=b.chrom, avg_v.chrom=v.chrom,latitude=lat)
 
 integ0$PINT.c <- c(pint.c_females, pint.c_males)
 
 integ_gen=integ0 %>% mutate(use=population %in% rownames(grm)) %>% filter(use==TRUE)
 
 #model without population covariance as random effect
-mod_simp<-brm(PINT.c~avg_r.chrom*as.factor(sex),data=integ_gen)
-mod_simp
+# mod_simp<-brm(PINT.c~avg_r.chrom*as.factor(sex),data=integ_gen)
+# mod_simp
 
 #phylogenetic multilevel model
 
@@ -488,10 +488,21 @@ mod_mm_w_int
 prior_summary(mod_mm_w_int)
 
 #without sex x color interaction
-mod_mm_no_int<-brm(PINT.c~avg_r.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))
-mod_mm_no_int
-prior_summary(mod_mm_no_int)
+mod_mm_no_int_breast<-brm(PINT.c~avg_r.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=integ_gen, data2=list(grm=grm), control = list(adapt_delta = 0.95))
+mod_mm_no_int_breast
+prior_summary(mod_mm_no_int_breast)
 
+##throat
+mod_mm_no_int_throat<-brm(PINT.c~avg_t.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=integ_gen, data2=list(grm=grm), control = list(adapt_delta = 0.95))
+mod_mm_no_int_throat
+
+##belly
+mod_mm_no_int_belly<-brm(PINT.c~avg_b.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=integ_gen, data2=list(grm=grm), control = list(adapt_delta = 0.95))
+mod_mm_no_int_belly
+
+##vent
+mod_mm_no_int_vent<-brm(PINT.c~avg_v.chrom+as.factor(sex) + (1 | gr(population, cov = grm)),data=integ_gen, data2=list(grm=grm), control = list(adapt_delta = 0.98))
+mod_mm_no_int_vent
 # brm_results_r.chrom <- pbapply::pblapply(1:5, function(i) {
 #   pops_boot_i <- d_gen %>% filter(boot_i == i)
 #   mod<-brm(PINT.c~avg_r.chrom*as.factor(sex) + (1 | gr(population, cov = grm)),data=d_gen %>% filter(boot_i==1), data2=list(grm=grm), control = list(adapt_delta = 0.95))})
