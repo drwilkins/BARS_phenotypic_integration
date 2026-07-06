@@ -409,13 +409,10 @@ d_gen$population %>% unique() %>% length
 
 
 #Add genetic info
-d_gen<-left_join(d_gen,fst[,c("population","weighted_Fst")],by="population") %>% select(population,location,sex,boot_i,PINT,PINT.c,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,weighted_Fst)
+d_gen<-left_join(d_gen,fst[,c("population","weighted_Fst")],by="population") %>% select(population,location,sex,boot_i,PINT.c,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,weighted_Fst)
 d_gen_pops<-d_gen %>% distinct(population) %>% unlist
 d_gen_m<-d_gen %>% filter(sex=="M")
 d_gen_f<-d_gen %>% filter(sex=="F")
-
-##make a raw dataset with genomic data
-d0_gen<-left_join(d0,fst[,c("population","weighted_Fst")],by="population") %>% select(population,location,sex,PINT,PINT.c,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,weighted_Fst)
 
 
 #######################################################
@@ -818,15 +815,49 @@ dist_cor <- function(x) as.dist(1-x)
 hclust_complete <- function(x) hclust(x, method = "complete")
 colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
 
-mat1=make_module_mat(nets_male, threshold=0.1)
-p1=heatmap(mat1, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+trait_names=c("Throat Brightness", "Throat Hue", "Throat Chroma", "Breast Brightness", "Breast Hue", "Breast Chroma", "Belly Brightness", "Belly Hue", "Belly Chroma", "Vent Brightness", "Vent Hue", "Vent Chroma")
+mat1_male=make_module_mat(nets_male, threshold=0.1)
+rownames(mat1_male) = colnames(mat1_male) = trait_names
+heatmap(mat1_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,4))
 
-mat2=make_module_mat(nets_male, threshold=0.2)
+mat2_male=make_module_mat(nets_male, threshold=0.2)
+rownames(mat2_male) = colnames(mat2_male) = trait_names
+heatmap(mat2_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
+mat3_male=make_module_mat(nets_male, threshold=0.3)
+rownames(mat3_male) = colnames(mat3_male) = trait_names
+heatmap(mat3, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
-p2=heatmap(mat2, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+pdf("heatmap_male_threshold0.1.pdf")
+heatmap(mat1_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+dev.off()
 
-mat3=make_module_mat(nets_male, threshold=0.3)
+pdf("heatmap_male_threshold0.2.pdf")
+heatmap(mat2_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+dev.off()
+
+pdf("heatmap_male_threshold0.3.pdf")
+heatmap(mat3_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+dev.off()
+
+mat1_female=make_module_mat(nets_female, threshold=0.1)
+rownames(mat1_female) = colnames(mat1_female) = trait_names
+mat2_female=make_module_mat(nets_female, threshold=0.2)
+rownames(mat2_female) = colnames(mat2_female) = trait_names
+mat3_female=make_module_mat(nets_female, threshold=0.3)
+rownames(mat3_female) = colnames(mat3_female) = trait_names
+
+pdf("heatmap_female_threshold0.1.pdf")
+heatmap(mat1_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+dev.off()
+
+pdf("heatmap_female_threshold0.2.pdf")
+heatmap(mat2_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+dev.off()
+
+pdf("heatmap_female_threshold0.3.pdf")
+heatmap(mat3_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+dev.off()
 
 library(vegan)
 mantel(mat1, mat3)
@@ -916,48 +947,55 @@ heatmap(mat_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust
 
 heatmap((mat_female+mat_male)/2, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
-cutreeDynamicTree(hclust(as.dist(1-(mat_male+mat_female)/2), method="average"), minModuleSize=2)
+#cutreeDynamicTree(hclust(as.dist(1-(mat_male+mat_female)/2), method="average"), minModuleSize=2)
 
-cutreeDynamicTree(hclust(as.dist(1-mat_male), method="average"), minModuleSize=2)
-rownames(mat_male)
+#cutreeDynamicTree(hclust(as.dist(1-mat_male), method="average"), minModuleSize=2)
 
-cutreeDynamic(hclust(as.dist(1-mat_female), method="complete"), method="tree", minClusterSize = 1)
-rownames(mat_female)
+#cutreeDynamic(hclust(as.dist(1-mat_female), method="complete"), method="tree", minClusterSize = 1)
+
+hc1=hclust(as.dist(1-(mat_female+mat_male)/2))
+str(hc1)
+hc1$order
 
 
-### try using dynamic cut tree for each population instead of fastgreedy
-t.rank=d_gen %>% group_by(population) %>% summarise(mean.t=mean(avg_t.chrom)) %>% mutate(rank=rank(-mean.t))
-
-top_t=which(t.rank$rank<30)
-
-treecut_males_membership=lapply(corr_list_males[top_t], function(x){
-  cutreeDynamicTree(hclust(as.dist(x), method="complete"), minModuleSize = 2)
-})
-
-comembers_treecut_male=lapply(treecut_males_membership, function(x) outer(x, x, "==")+0)
-
-comembers_treecut_male_array=abind(comembers_treecut_male, along=3)
-
-sum_mat_treecut_male=apply(comembers_treecut_male_array, c(1,2), sum)
-rownames(sum_mat_treecut_male)=colnames(sum_mat_treecut_male)=rownames(corr_list_males[[1]])
-
-map.data_treecut_male=data.frame(expand.grid(rownames(sum_mat_treecut_male), colnames(sum_mat_treecut_male)), expand.grid(sum_mat_treecut_male))
-names(map.data_treecut_male)=c("Rows", "Columns", "Values")
-
-map.data_treecut_male$Values=map.data_treecut_male$Values/28
-
-x_hue_treecut_male=map.data_treecut_male[-c(grep("hue",map.data_treecut_male$Rows), grep("hue", map.data_treecut_male$Columns)),]
-
-mat_treecut_male=base::as.matrix(pivot_wider(map.data_treecut_male%>%filter(), names_from = Rows, values_from = Values)[,-1])
-rownames(mat_treecut_male)=colnames(mat_treecut_male)
-mat_treecut_male
-
-dist_cor <- function(x) as.dist(1-x)
-hclust_complete <- function(x) hclust(x, method = "complete")
-
-colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
-heatmap(mat_treecut_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
-
+hc1$labels[hc1$order]
+hc1$merge
+hc_df=data.frame(hc1$merge, hc1$height)
+hc_df
+write.csv(hc_df, "hierarchicalclustering_result.csv")
+# ### try using dynamic cut tree for each population instead of fastgreedy
+# t.rank=d_gen %>% group_by(population) %>% summarise(mean.t=mean(avg_t.chrom)) %>% mutate(rank=rank(-mean.t))
+# 
+# top_t=which(t.rank$rank<30)
+# 
+# treecut_males_membership=lapply(corr_list_males[top_t], function(x){
+#   cutreeDynamicTree(hclust(as.dist(x), method="complete"), minModuleSize = 2)
+# })
+# 
+# comembers_treecut_male=lapply(treecut_males_membership, function(x) outer(x, x, "==")+0)
+# 
+# comembers_treecut_male_array=abind(comembers_treecut_male, along=3)
+# 
+# sum_mat_treecut_male=apply(comembers_treecut_male_array, c(1,2), sum)
+# rownames(sum_mat_treecut_male)=colnames(sum_mat_treecut_male)=rownames(corr_list_males[[1]])
+# 
+# map.data_treecut_male=data.frame(expand.grid(rownames(sum_mat_treecut_male), colnames(sum_mat_treecut_male)), expand.grid(sum_mat_treecut_male))
+# names(map.data_treecut_male)=c("Rows", "Columns", "Values")
+# 
+# map.data_treecut_male$Values=map.data_treecut_male$Values/28
+# 
+# x_hue_treecut_male=map.data_treecut_male[-c(grep("hue",map.data_treecut_male$Rows), grep("hue", map.data_treecut_male$Columns)),]
+# 
+# mat_treecut_male=base::as.matrix(pivot_wider(map.data_treecut_male%>%filter(), names_from = Rows, values_from = Values)[,-1])
+# rownames(mat_treecut_male)=colnames(mat_treecut_male)
+# mat_treecut_male
+# 
+# dist_cor <- function(x) as.dist(1-x)
+# hclust_complete <- function(x) hclust(x, method = "complete")
+# 
+# colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
+# heatmap(mat_treecut_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
+# 
 
 
 
@@ -1062,6 +1100,8 @@ dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, popula
   mutate(patch = replace(patch, patch=="r", "within other patches")) %>%
   mutate(patch = replace(patch, patch=="", "between modules")) 
 
+dat2=dat2 %>% left_join(., fst)
+dat2
 # ## avg ratio analyses
 # summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="M")))
 # summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="F")))
@@ -1131,6 +1171,8 @@ plot_grid(modplot1m_nolegend, modplot2m, NULL, modplot1f, modplot2f, legend_plot
 
 ##
 #interaction between within-module and between module
+## revision--realizing that we should actually only look at within the focal patch vs. between patch
+
 t_int_m=lm(edge.weight~mean.t.chrom*edge.type, data=dat2 %>% filter(sex=="M"))
 summary(t_int_m)
 
@@ -1144,92 +1186,111 @@ r_int_f=lm(edge.weight~mean.r.chrom*edge.type, data=dat2 %>% filter( sex=="F"))
 summary(r_int_f)
 
 
-###alternative model
+##what if we add Fst to the analysis? 
+## This does remove the interaction effect--however, it seems like this may be due to the reduction in sample size from N=28 to N=20. When I run the analysis with just the 20 populations with genetic data, the interaction effect is not significant, even when I don't include the Fst in the model.
+
+library(MuMIn)
+tempdata=dat2 %>% filter(sex=="M") %>% filter(is.na(weighted_Fst)==FALSE)
+options(na.action = "na.fail")
+t_int_m_full=lm(edge.weight~mean.t.chrom*edge.type+weighted_Fst, data=tempdata)
+summary(t_int_m_full)
+dredge(t_int_m_full, rank="AIC")
+
+t_int_m_20pop=lm(edge.weight~mean.t.chrom*edge.type, data=tempdata)
+
+
+## phylogenetic multilevel model. Problem with this is that it reduces the sample size from N = 28 to N = 20
+mod_modularity_throat_male<-brm(edge.weight~mean.t.chrom*edge.type + (1 | gr(population, cov = grm)), data=dat2 %>% filter(sex=="M")%>% filter(population%in%rownames(grm)), data2=list(grm=grm), control = list(adapt_delta = 0.8))
+mod_modularity_throat_male
+########################
+###alternative models
+#########################
 #throat vs. others except hue
 # 1 = throat, 2 = hue, 3 = others
-patches=c(rep(1, 3), 3, 2, 3, 3, 2, 3, 3, 2, 3)
-same.patch=outer(patches, patches, FUN="==")
-same.patch
-patch.names=c("Throat", "Breast-Belly-Vent")
-modules=matrix(nrow=length(patches), ncol=length(patches))
-for(i in 1:3){
-  modules[which(patches==i), which(patches==i)] = i
-}
-modules
-
-#throat + hue vs. others
-# 1 = throat + hue, 2 = others
-patches=c(rep(1, 3), 2, 1, 2, 2, 1, 2, 2, 1, 2)
-same.patch=outer(patches, patches, FUN="==")
-same.patch
-patch.names=c("Throat", "Breast-Belly-Vent")
-modules=matrix(nrow=length(patches), ncol=length(patches))
-for(i in 1:3){
-  modules[which(patches==i), which(patches==i)] = i
-}
-modules
-
-mods.list.male=lapply(corr_list_males, function(x) {
-  diag(x)=NA
-  wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-  wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-  btw_mod=mean(abs(x[is.na(modules)]), na.rm=T)
-  data.frame(wi_mod1, wi_mod2, btw_mod)
-})
-
-#organize results into dataframe
-mods.dat.male=tibble(bind_rows(mods.list.male))
-mods.dat.male$sex="M"
-mods.dat.male$population=names(corr_list_males)
-
-
-mods.list.female=lapply(corr_list_females, function(x) {
-  diag(x)=NA
-  wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
-  wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
-  btw_mod=mean(abs(x[is.na(modules)]), na.rm=T)
-  data.frame(wi_mod1, wi_mod2, btw_mod)
-})
-
-mods.dat.female=tibble(bind_rows(mods.list.female))
-mods.dat.female$sex="F"
-mods.dat.female$population=names(corr_list_females)
-
-#Make data frame for main figure 
-integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright", "b.chrom", "v.chrom", "lat"),mean,na.rm=TRUE) %>% 
-  arrange(sex,population) %>% 
-  rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom,mean.t.avg.bright=t.avg.bright,mean.r.chrom=r.chrom,mean.r.avg.bright=r.avg.bright, mean.b.chrom=b.chrom, mean.v.chrom=v.chrom, latitude=lat)
-
-# integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
-# integ0$pint <- c(pint_females, pint_males)
-# integ0 <- integ0 %>% arrange(sex,desc(network_density)) 
-
-mods.dat=bind_rows(list(mods.dat.female, mods.dat.male))
-#now combine the population-level color data with modularity data
-integ=mods.dat%>% left_join(., integ0) 
-
-dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, population) %>% 
-  rename(wi_t=wi_mod1, wi_r=wi_mod2, btw=btw_mod) %>%
-  pivot_longer(-c(starts_with("mean"),sex, population), names_to="edge.type", values_to="edge.weight") %>%
-  mutate(wi_btw=str_sub(edge.type, start=1, end=2)) %>%
-  mutate(wi_btw = replace(wi_btw, wi_btw=="wi", 1)) %>%
-  mutate(wi_btw = replace(wi_btw, wi_btw=="bt", 2)) %>%
-  mutate(patch=str_sub(edge.type, start=4, end=6)) %>%
-  mutate(patch = replace(patch, patch=="t", "within throat")) %>%
-  mutate(patch = replace(patch, patch=="r", "within other patches")) %>%
-  mutate(patch = replace(patch, patch=="", "between modules")) 
-
-t_int_m=lm(edge.weight~mean.t.chrom*edge.type, data=dat2 %>% filter(sex=="M"))
-summary(t_int_m)
-
-t_int_f=lm(edge.weight~mean.t.chrom*edge.type, data=dat2 %>% filter( sex=="F"))
-summary(t_int_f)
-
-r_int_m=lm(edge.weight~mean.r.chrom*edge.type, data=dat2 %>% filter( sex=="M"))
-summary(r_int_m)
-
-r_int_f=lm(edge.weight~mean.r.chrom*edge.type, data=dat2 %>% filter( sex=="F"))
-summary(r_int_f)
+# patches=c(rep(1, 3), 3, 2, 3, 3, 2, 3, 3, 2, 3)
+# same.patch=outer(patches, patches, FUN="==")
+# same.patch
+# patch.names=c("Throat", "Breast-Belly-Vent")
+# modules=matrix(nrow=length(patches), ncol=length(patches))
+# for(i in 1:3){
+#   modules[which(patches==i), which(patches==i)] = i
+# }
+# modules
+# 
+# #throat + hue vs. others
+# # 1 = throat + hue, 2 = others
+# patches=c(rep(1, 3), 2, 1, 2, 2, 1, 2, 2, 1, 2)
+# same.patch=outer(patches, patches, FUN="==")
+# same.patch
+# patch.names=c("Throat", "Breast-Belly-Vent")
+# modules=matrix(nrow=length(patches), ncol=length(patches))
+# for(i in 1:3){
+#   modules[which(patches==i), which(patches==i)] = i
+# }
+# modules
+# 
+# mods.list.male=lapply(corr_list_males, function(x) {
+#   diag(x)=NA
+#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
+#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+#   btw_mod=mean(abs(x[is.na(modules)]), na.rm=T)
+#   data.frame(wi_mod1, wi_mod2, btw_mod)
+# })
+# 
+# #organize results into dataframe
+# mods.dat.male=tibble(bind_rows(mods.list.male))
+# mods.dat.male$sex="M"
+# mods.dat.male$population=names(corr_list_males)
+# 
+# 
+# mods.list.female=lapply(corr_list_females, function(x) {
+#   diag(x)=NA
+#   wi_mod1=mean(abs(x[which(modules==1)]), na.rm=T)
+#   wi_mod2=mean(abs(x[which(modules==2)]), na.rm=T)
+#   btw_mod=mean(abs(x[is.na(modules)]), na.rm=T)
+#   data.frame(wi_mod1, wi_mod2, btw_mod)
+# })
+# 
+# mods.dat.female=tibble(bind_rows(mods.list.female))
+# mods.dat.female$sex="F"
+# mods.dat.female$population=names(corr_list_females)
+# 
+# #Make data frame for main figure 
+# integ0<-d %>% group_by(population, sex) %>% summarise_at(c("t.chrom","r.chrom","t.avg.bright","r.avg.bright", "b.chrom", "v.chrom", "lat"),mean,na.rm=TRUE) %>%
+#   arrange(sex,population) %>%
+#   rename(mean.t.chrom=t.chrom,mean.r.chrom=r.chrom,mean.t.avg.bright=t.avg.bright,mean.r.chrom=r.chrom,mean.r.avg.bright=r.avg.bright, mean.b.chrom=b.chrom, mean.v.chrom=v.chrom, latitude=lat)
+# 
+# # integ0$network_density <- c(pop_netdensity_females,pop_netdensity_males)
+# # integ0$pint <- c(pint_females, pint_males)
+# # integ0 <- integ0 %>% arrange(sex,desc(network_density)) 
+# 
+# mods.dat=bind_rows(list(mods.dat.female, mods.dat.male))
+# #now combine the population-level color data with modularity data
+# integ=mods.dat%>% left_join(., integ0) 
+# 
+# dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, population) %>% 
+#   rename(wi_t=wi_mod1, wi_r=wi_mod2, btw=btw_mod) %>%
+#   pivot_longer(-c(starts_with("mean"),sex, population), names_to="edge.type", values_to="edge.weight") %>%
+#   mutate(wi_btw=str_sub(edge.type, start=1, end=2)) %>%
+#   mutate(wi_btw = replace(wi_btw, wi_btw=="wi", 1)) %>%
+#   mutate(wi_btw = replace(wi_btw, wi_btw=="bt", 2)) %>%
+#   mutate(patch=str_sub(edge.type, start=4, end=6)) %>%
+#   mutate(patch = replace(patch, patch=="t", "within throat")) %>%
+#   mutate(patch = replace(patch, patch=="r", "within other patches")) %>%
+#   mutate(patch = replace(patch, patch=="", "between modules")) 
+# 
+# t_int_m=lm(edge.weight~mean.t.chrom*edge.type, data=dat2 %>% filter(sex=="M"))
+# summary(t_int_m)
+# 
+# t_int_f=lm(edge.weight~mean.t.chrom*edge.type, data=dat2 %>% filter( sex=="F"))
+# summary(t_int_f)
+# 
+# r_int_m=lm(edge.weight~mean.r.chrom*edge.type, data=dat2 %>% filter( sex=="M"))
+# summary(r_int_m)
+# 
+# r_int_f=lm(edge.weight~mean.r.chrom*edge.type, data=dat2 %>% filter( sex=="F"))
+# summary(r_int_f)
+# 
 
 
 ## supplemental figure 2
