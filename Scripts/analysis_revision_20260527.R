@@ -1,5 +1,5 @@
 require(pacman)
-p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer, pheatmap, abind, infotheo)
+p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer, pheatmap, abind, infotheo, lme4)
 #remotes::install_github("galacticpolymath/galacticEdTools")
 #require(galacticEdTools)
 
@@ -526,6 +526,12 @@ mod_mm_female
 #   mod<-lm(PINT.c~avg_r.chrom+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
 #   out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 # }) %>% bind_rows
+
+lmm_results_r.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lmer(PINT.c~avg_r.chrom+ weighted_Fst+as.factor(sex)+(1|population),data=pops_boot_i) 
+  out<-tibble(boot=i,est_avg_r.chrom=anova(mod)$`Sum Sq`[1],est_Fst=anova(mod)$`Sum Sq`[2],est_sexM=anova(mod)$`Sum Sq`[3])
+}) %>% bind_rows
 
 # lm_results_t.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
 #   pops_boot_i <- d_gen %>% filter(boot_i == i)
