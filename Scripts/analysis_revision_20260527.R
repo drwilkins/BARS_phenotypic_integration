@@ -868,6 +868,43 @@ plot_grid(G_r_simple, G_t_simple, nrow=2)
 #ggsave("figs/Fig3_v2.pdf", width=8, height=8)
 
 
+#for supplement: plot belly and vent also
+G_b_simple<-res$mean_traits %>%  mutate(sex=factor(sex, levels=c("M", "F"))) %>%
+  ggplot(aes(x = avg_b.chrom, y = PINT.c)) +
+  geom_point(size=3,pch=21,col="black", aes(fill = avg_b.chrom)) +
+  scale_fill_gradient(
+    limits = range(res$mean_traits$avg_b.chrom),
+    low = "#FFFFCC",
+    high = "#CC6600",
+    guide = "none"
+  ) + 
+  geom_smooth(method="lm", color="black") +
+  facet_wrap( ~ sex) + 
+  xlab("Belly | Average Population Color (Chroma)")+
+  ylab("Phenotypic Integration") +
+  theme_bw() +
+  ylim(0.75, 3.0) +
+  theme(strip.text=element_blank(),axis.text=element_text(size=14), axis.title=element_text(size=16), panel.grid.minor=element_blank(), panel.grid.major=element_blank()) 
+
+G_v_simple<-res$mean_traits %>%  mutate(sex=factor(sex, levels=c("M", "F"))) %>%
+  ggplot(aes(x = avg_v.chrom, y = PINT.c)) +
+  geom_point(size=3,pch=21,col="black", aes(fill = avg_v.chrom)) +
+  scale_fill_gradient(
+    limits = range(res$mean_traits$avg_v.chrom),
+    low = "#FFFFCC",
+    high = "#CC6600",
+    guide = "none"
+  ) + 
+  geom_smooth(method="lm", color="black") +
+  facet_wrap( ~ sex) + 
+  xlab("Vent | Average Population Color (Chroma)")+
+  ylab("Phenotypic Integration") +
+  theme_bw() +
+  ylim(0.75, 3.0) +
+  theme(strip.text=element_blank(),axis.text=element_text(size=14), axis.title=element_text(size=16), panel.grid.minor=element_blank(), panel.grid.major=element_blank()) 
+
+plot_grid(G_b_simple, G_v_simple, nrow=2)
+ggsave("figs/SuppFig_bellyvent.pdf", width=8, height=8)
 
 ### Modularity
 d$population<-as.factor(d$population)
