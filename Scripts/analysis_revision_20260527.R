@@ -527,11 +527,6 @@ mod_mm_female
 #   out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 # }) %>% bind_rows
 
-lmm_results_r.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
-  pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lmer(PINT.c~avg_r.chrom+ weighted_Fst+as.factor(sex)+(1|population),data=pops_boot_i) 
-  out<-tibble(boot=i,est_avg_r.chrom=anova(mod)$`Sum Sq`[1],est_Fst=anova(mod)$`Sum Sq`[2],est_sexM=anova(mod)$`Sum Sq`[3])
-}) %>% bind_rows
 
 # lm_results_t.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
 #   pops_boot_i <- d_gen %>% filter(boot_i == i)
@@ -555,7 +550,48 @@ lmm_results_r.chrom_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
 # 
 # save(lm_results_r.chrom_fst, lm_results_t.chrom_fst, lm_results_b.chrom_fst, lm_results_v.chrom_fst, file="Data/PINTanalysis_results_w_Fst.rds")
 
+# #Run all of the models WITH SCALED variables and save the results so that we don't have to run them each time.
+# 
+lm_results_r.chrom_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lm(PINT.c~scale(avg_r.chrom)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_r.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
+}) %>% bind_rows
+
+# calculate mean slope from simple regression
+# lm_simple_try<-pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+#   pops_boot_i <- d_gen %>% filter(boot_i == i)
+#   mod<-lm(PINT.c~avg_r.chrom,data=pops_boot_i)
+#   out<-tibble(boot=i,est_avg_r.chrom=mod$coefficients[2])
+# }) %>% bind_rows
+# 
+# mean(lm_simple_try$est_avg_r.chrom)
+
+lm_results_t.chrom_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lm(PINT.c~scale(avg_t.chrom)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_t.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
+}) %>% bind_rows
+
+#belly chroma
+lm_results_b.chrom_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lm(PINT.c~scale(avg_b.chrom)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_b.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
+}) %>% bind_rows
+
+#vent chroma
+lm_results_v.chrom_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+  pops_boot_i <- d_gen %>% filter(boot_i == i)
+  mod<-lm(PINT.c~scale(avg_v.chrom)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
+  out<-tibble(boot=i,est_avg_v.chrom=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
+}) %>% bind_rows
+
+save(lm_results_r.chrom_fst_scaled, lm_results_t.chrom_fst_scaled, lm_results_b.chrom_fst_scaled, lm_results_v.chrom_fst_scaled, file="Data/PINTanalysis_results_w_Fst_scaled.rds")
+
 load("Data/PINTanalysis_results_w_Fst.rds")
+load("Data/PINTanalysis_results_w_Fst_scaled.rds")
+
 # This is the result reported in paper
 #95CIs for analysis with sex as covariate, rather than splitting up analyses
 #Significant effect of breast darkness on phenotypic integration (PCIT)
@@ -581,9 +617,6 @@ mean(lm_results_t.chrom_fst$est_Fst,na.rm=T,names=F)
 quantile(lm_results_t.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
 mean(lm_results_t.chrom_fst$est_sexM,na.rm=T)
 
-
-
-
 # This is the result reported in paper
 #95CIs for analysis with sex as covariate, rather than splitting up analyses
 #Significant effect of breast darkness on phenotypic integration (PCIT)
@@ -595,8 +628,6 @@ mean(lm_results_b.chrom_fst$est_Fst,na.rm=T,names=F)
 #Nonsignificant effect of sex on phenotypic integration (PCIT)
 quantile(lm_results_b.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
 mean(lm_results_b.chrom_fst$est_sexM,na.rm=T)
-
-
 
 # This is the result reported in paper
 #95CIs for analysis with sex as covariate, rather than splitting up analyses
@@ -610,145 +641,184 @@ mean(lm_results_v.chrom_fst$est_Fst,na.rm=T,names=F)
 quantile(lm_results_v.chrom_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
 mean(lm_results_v.chrom_fst$est_sexM,na.rm=T)
 
+###scaled version
+quantile(lm_results_r.chrom_fst_scaled$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.chrom_fst_scaled$est_avg_r.chrom,na.rm=T,names=F)
+#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
+quantile(lm_results_r.chrom_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.chrom_fst_scaled$est_Fst,na.rm=T,names=F)
+#Nonsignificant effect of sex on phenotypic integration (PCIT)
+quantile(lm_results_r.chrom_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.chrom_fst_scaled$est_sexM,na.rm=T)
+
+quantile(lm_results_t.chrom_fst_scaled$est_avg_t.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.chrom_fst_scaled$est_avg_t.chrom,na.rm=T,names=F)
+#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
+quantile(lm_results_t.chrom_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.chrom_fst_scaled$est_Fst,na.rm=T,names=F)
+#Nonsignificant effect of sex on phenotypic integration (PCIT)
+quantile(lm_results_t.chrom_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.chrom_fst_scaled$est_sexM,na.rm=T)
+
+quantile(lm_results_b.chrom_fst_scaled$est_avg_b.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.chrom_fst_scaled$est_avg_b.chrom,na.rm=T,names=F)
+#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
+quantile(lm_results_b.chrom_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.chrom_fst_scaled$est_Fst,na.rm=T,names=F)
+#Nonsignificant effect of sex on phenotypic integration (PCIT)
+quantile(lm_results_b.chrom_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.chrom_fst_scaled$est_sexM,na.rm=T)
+
+quantile(lm_results_v.chrom_fst_scaled$est_avg_v.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.chrom_fst_scaled$est_avg_v.chrom,na.rm=T,names=F)
+#Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
+quantile(lm_results_v.chrom_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.chrom_fst_scaled$est_Fst,na.rm=T,names=F)
+#Nonsignificant effect of sex on phenotypic integration (PCIT)
+quantile(lm_results_v.chrom_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.chrom_fst_scaled$est_sexM,na.rm=T)
+
+
+
 ##supplemental analysis: do this for brightness and hue
 ## breast brightness
-lm_results_r.bright_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_r.bright_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_r.avg.bright+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_r.avg.bright)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_r.avg.bright=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_r.bright_fst$est_avg_r.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.bright_fst$est_avg_r.avg.bright,na.rm=T,names=F)
+quantile(lm_results_r.bright_fst_scaled$est_avg_r.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.bright_fst_scaled$est_avg_r.avg.bright,na.rm=T,names=F)
 #Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_r.bright_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.bright_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_r.bright_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.bright_fst_scaled$est_Fst,na.rm=T,names=F)
 #Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_r.bright_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.bright_fst$est_sexM,na.rm=T)
+quantile(lm_results_r.bright_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.bright_fst_scaled$est_sexM,na.rm=T)
 
 #throat brightness
-lm_results_t.bright_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_t.bright_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_t.avg.bright+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_t.avg.bright)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_t.avg.bright=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_t.bright_fst$est_avg_t.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.bright_fst$est_avg_t.avg.bright,na.rm=T,names=F)
+quantile(lm_results_t.bright_fst_scaled$est_avg_t.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.bright_fst_scaled$est_avg_t.avg.bright,na.rm=T,names=F)
 #Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_t.bright_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.bright_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_t.bright_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.bright_fst_scaled$est_Fst,na.rm=T,names=F)
 #Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_t.bright_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.bright_fst$est_sexM,na.rm=T)
+quantile(lm_results_t.bright_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.bright_fst_scaled$est_sexM,na.rm=T)
 
 #belly brightness
-lm_results_b.bright_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_b.bright_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_b.avg.bright+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_b.avg.bright)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_b.avg.bright=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_b.bright_fst$est_avg_b.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.bright_fst$est_avg_b.avg.bright,na.rm=T,names=F)
+quantile(lm_results_b.bright_fst_scaled$est_avg_b.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.bright_fst_scaled$est_avg_b.avg.bright,na.rm=T,names=F)
 # effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_b.bright_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.bright_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_b.bright_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.bright_fst_scaled$est_Fst,na.rm=T,names=F)
 #effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_b.bright_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.bright_fst$est_sexM,na.rm=T)
+quantile(lm_results_b.bright_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.bright_fst_scaled$est_sexM,na.rm=T)
 
 #vent brightness
-lm_results_v.bright_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_v.bright_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_v.avg.bright+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_v.avg.bright)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_v.avg.bright=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_v.bright_fst$est_avg_v.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.bright_fst$est_avg_v.avg.bright,na.rm=T,names=F)
+quantile(lm_results_v.bright_fst_scaled$est_avg_v.avg.bright,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.bright_fst_scaled$est_avg_v.avg.bright,na.rm=T,names=F)
 # effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_v.bright_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.bright_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_v.bright_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.bright_fst_scaled$est_Fst,na.rm=T,names=F)
 #effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_v.bright_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.bright_fst$est_sexM,na.rm=T)
+quantile(lm_results_v.bright_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.bright_fst_scaled$est_sexM,na.rm=T)
 
-save(lm_results_r.bright_fst, lm_results_t.bright_fst, lm_results_b.bright_fst, lm_results_v.bright_fst, file="Data/PINTanalysis_results_w_Fst_brightness.rds")
+save(lm_results_r.bright_fst_scaled, lm_results_t.bright_fst_scaled, lm_results_b.bright_fst_scaled, lm_results_v.bright_fst_scaled, file="Data/PINTanalysis_results_w_Fst_brightness_scaled.rds")
 
 ## breast hue
-lm_results_r.hue_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_r.hue_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_r.hue+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_r.hue)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_r.hue=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_r.hue_fst$est_avg_r.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.hue_fst$est_avg_r.hue,na.rm=T,names=F)
+quantile(lm_results_r.hue_fst_scaled$est_avg_r.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.hue_fst_scaled$est_avg_r.hue,na.rm=T,names=F)
 #Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_r.hue_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.hue_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_r.hue_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.hue_fst_scaled$est_Fst,na.rm=T,names=F)
 #Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_r.hue_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_r.hue_fst$est_sexM,na.rm=T)
+quantile(lm_results_r.hue_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_r.hue_fst_scaled$est_sexM,na.rm=T)
 
 #throat hue
-lm_results_t.hue_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_t.hue_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_t.hue+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_t.hue)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_t.hue=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_t.hue_fst$est_avg_t.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.hue_fst$est_avg_t.hue,na.rm=T,names=F)
+quantile(lm_results_t.hue_fst_scaled$est_avg_t.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.hue_fst_scaled$est_avg_t.hue,na.rm=T,names=F)
 #Significant effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_t.hue_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.hue_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_t.hue_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.hue_fst_scaled$est_Fst,na.rm=T,names=F)
 #Nonsignificant effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_t.hue_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_t.hue_fst$est_sexM,na.rm=T)
+quantile(lm_results_t.hue_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_t.hue_fst_scaled$est_sexM,na.rm=T)
 
 #belly hue
-lm_results_b.hue_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_b.hue_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_b.hue+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_b.hue)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_b.hue=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_b.hue_fst$est_avg_b.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.hue_fst$est_avg_b.hue,na.rm=T,names=F)
+quantile(lm_results_b.hue_fst_scaled$est_avg_b.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.hue_fst_scaled$est_avg_b.hue,na.rm=T,names=F)
 # effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_b.hue_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.hue_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_b.hue_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.hue_fst_scaled$est_Fst,na.rm=T,names=F)
 #effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_b.hue_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_b.hue_fst$est_sexM,na.rm=T)
+quantile(lm_results_b.hue_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_b.hue_fst_scaled$est_sexM,na.rm=T)
 
 #vent hue
-lm_results_v.hue_fst <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
+lm_results_v.hue_fst_scaled <- pbapply::pblapply(1:max(d_gen$boot_i), function(i) {
   pops_boot_i <- d_gen %>% filter(boot_i == i)
-  mod<-lm(PINT.c~avg_v.hue+ weighted_Fst+as.factor(sex),data=pops_boot_i) %>% tidy()
+  mod<-lm(PINT.c~scale(avg_v.hue)+ scale(weighted_Fst)+as.factor(sex),data=pops_boot_i) %>% tidy()
   out<-tibble(boot=i,est_avg_v.hue=mod$estimate[2],est_Fst=mod$estimate[3],est_sexM=mod$estimate[4])
 }) %>% bind_rows
 
-quantile(lm_results_v.hue_fst$est_avg_v.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.hue_fst$est_avg_v.hue,na.rm=T,names=F)
+quantile(lm_results_v.hue_fst_scaled$est_avg_v.hue,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.hue_fst_scaled$est_avg_v.hue,na.rm=T,names=F)
 # effect of population genetics (Fst) on phenotypic integration (PCIT)
-quantile(lm_results_v.hue_fst$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.hue_fst$est_Fst,na.rm=T,names=F)
+quantile(lm_results_v.hue_fst_scaled$est_Fst,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.hue_fst_scaled$est_Fst,na.rm=T,names=F)
 #effect of sex on phenotypic integration (PCIT)
-quantile(lm_results_v.hue_fst$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_results_v.hue_fst$est_sexM,na.rm=T)
+quantile(lm_results_v.hue_fst_scaled$est_sexM,probs=c(.025,.975),na.rm=T,names=F,type=7)
+mean(lm_results_v.hue_fst_scaled$est_sexM,na.rm=T)
 
-save(lm_results_r.hue_fst, lm_results_t.hue_fst, lm_results_b.hue_fst, lm_results_v.hue_fst, file="Data/PINTanalysis_results_w_Fst_brightness.rds")
+save(lm_results_r.hue_fst_scaled, lm_results_t.hue_fst_scaled, lm_results_b.hue_fst_scaled, lm_results_v.hue_fst_scaled, file="Data/PINTanalysis_results_w_Fst_brightness_scaled.rds")
 
 ###supplemental analysis: do this for all 28 populations by excluding genomic data
 
-boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
-boot_lm<-rbind(boot_f,boot_m)
-
+# boot_f<-res$boot_sum %>% filter(sex=="F") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
+# boot_m<-res$boot_sum %>% filter(sex=="M") %>% select(population, location, boot_i, sex,avg_r.chrom,avg_t.chrom,avg_b.chrom,avg_v.chrom,PINT.c)
+# boot_lm<-rbind(boot_f,boot_m)
+# 
 # #Run models with sex as a factor
 # lm_res_R<- pbapply::pblapply(1:max(boot_both$boot_i), function(i) {
 #   pops_boot_i <- boot_both %>% filter(boot_i == i)
@@ -779,15 +849,15 @@ boot_lm<-rbind(boot_f,boot_m)
 # 
 # 
 # save(lm_res_R, lm_res_T, lm_res_B, lm_res_V, file="Data/PINTanalysis_results_no_Fst.rds")
-
-load("Data/PINTanalysis_results_no_Fst.rds")
-#Significant effect of chroma
-quantile(lm_res_R$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_R$est_avg_r.chrom,na.rm=T)
-
-#Nonsignificant effect of sex
-quantile(lm_res_R$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
-mean(lm_res_R$est_sex,na.rm=T)
+# 
+# load("Data/PINTanalysis_results_no_Fst.rds")
+# #Significant effect of chroma
+# quantile(lm_res_R$est_avg_r.chrom,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_res_R$est_avg_r.chrom,na.rm=T)
+# 
+# #Nonsignificant effect of sex
+# quantile(lm_res_R$est_sex,probs=c(.025,.975),na.rm=T,names=F,type=7)
+# mean(lm_res_R$est_sex,na.rm=T)
 
 
 # Look at negligible effect of throat on PINT -----------------------------
@@ -906,6 +976,34 @@ G_v_simple<-res$mean_traits %>%  mutate(sex=factor(sex, levels=c("M", "F"))) %>%
 plot_grid(G_b_simple, G_v_simple, nrow=2)
 ggsave("figs/SuppFig_bellyvent.pdf", width=8, height=8)
 
+##For supplement: Fst and PINT.c
+d_meanFst=d_gen %>% group_by(location, sex) %>% summarise(mean_PINT.c=mean(PINT.c), Fst=mean(weighted_Fst), avg_r.chrom=mean(avg_r.chrom)) %>%
+  mutate(sex=factor(sex, levels=c("M", "F")))
+
+ggplot(d_meanFst, aes(x=Fst, y=mean_PINT.c)) + 
+  geom_point() +
+  geom_smooth(method="lm", color="black") +
+  facet_wrap(~sex) +
+  theme_bw() +
+  theme(strip.text=element_blank(),axis.text=element_text(size=12), axis.title=element_text(size=12), panel.grid.minor=element_blank(), panel.grid.major=element_blank()) + xlab("Fst") +
+  ylab("PINT.c (bootstrapped mean)")
+
+ggsave("figs/Fst_PINTc.pdf")
+
+fit=lm(mean_PINT.c~Fst*sex+avg_r.chrom, data=d_meanFst)
+summary(fit)
+# plot(d_meanFst$Fst, predict(fit), 
+#      xlab = "Fst", 
+#      ylab = "mean_PINT.c (predicted)", 
+#      main = "plot predicted")
+
+# integ0=integ0 %>% left_join(., fst)
+# 
+# ggplot(integ0, aes(x=weighted_Fst, y=PINT.c)) +
+#   geom_point() +
+#   geom_smooth(method="lm") +
+#   facet_wrap(~sex)
+
 ### Modularity
 d$population<-as.factor(d$population)
 d$sex<-as.factor(d$sex)
@@ -922,11 +1020,11 @@ traits<-c('tail.mean','t.avg.bright','t.hue','t.chrom','r.avg.bright','r.hue','r
 traits_col <- traits[-c(1)]
 
 #Male correlations by population
-corr_list_males<-lapply(names(data_list_males), function(x) cor(as.matrix(data_list_males[[x]][,traits_col]),method="s",use="pairwise.complete"))
+corr_list_males<-lapply(names(data_list_males), function(x) cor(as.matrix(data_list_males[[x]][,traits_col]),method="spearman",use="pairwise.complete"))
 names(corr_list_males)<-levels(d$population)
 
 #Female correlations by population
-corr_list_females<-lapply(names(data_list_females), function(x) cor(as.matrix(data_list_females[[x]][,traits_col]),method="s",use="pairwise.complete"))
+corr_list_females<-lapply(names(data_list_females), function(x) cor(as.matrix(data_list_females[[x]][,traits_col]),method="spearman",use="pairwise.complete"))
 names(corr_list_females)<-levels(d$population)
 
 nets_male=lapply(corr_list_males, function(x) {
@@ -1001,7 +1099,7 @@ colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
 trait_names=c("Throat Brightness", "Throat Hue", "Throat Chroma", "Breast Brightness", "Breast Hue", "Breast Chroma", "Belly Brightness", "Belly Hue", "Belly Chroma", "Vent Brightness", "Vent Hue", "Vent Chroma")
 mat1_male=make_module_mat(nets_male, threshold=0.1)
 rownames(mat1_male) = colnames(mat1_male) = trait_names
-heatmap(mat1_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,4))
+heatmap(mat1_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
 mat2_male=make_module_mat(nets_male, threshold=0.2)
 rownames(mat2_male) = colnames(mat2_male) = trait_names
@@ -1011,17 +1109,17 @@ mat3_male=make_module_mat(nets_male, threshold=0.3)
 rownames(mat3_male) = colnames(mat3_male) = trait_names
 heatmap(mat3, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
 
-pdf("heatmap_male_threshold0.1.pdf")
-heatmap(mat1_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
-dev.off()
-
-pdf("heatmap_male_threshold0.2.pdf")
-heatmap(mat2_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
-dev.off()
-
-pdf("heatmap_male_threshold0.3.pdf")
-heatmap(mat3_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
-dev.off()
+# pdf("heatmap_male_threshold0.1.pdf")
+# heatmap(mat1_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+# dev.off()
+# 
+# pdf("heatmap_male_threshold0.2.pdf")
+# heatmap(mat2_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+# dev.off()
+# 
+# pdf("heatmap_male_threshold0.3.pdf")
+# heatmap(mat3_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+# dev.off()
 
 mat1_female=make_module_mat(nets_female, threshold=0.1)
 rownames(mat1_female) = colnames(mat1_female) = trait_names
@@ -1030,20 +1128,20 @@ rownames(mat2_female) = colnames(mat2_female) = trait_names
 mat3_female=make_module_mat(nets_female, threshold=0.3)
 rownames(mat3_female) = colnames(mat3_female) = trait_names
 
-pdf("heatmap_female_threshold0.1.pdf")
-heatmap(mat1_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
-dev.off()
+# pdf("heatmap_female_threshold0.1.pdf")
+# heatmap(mat1_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+# dev.off()
+# 
+# pdf("heatmap_female_threshold0.2.pdf")
+# heatmap(mat2_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+# dev.off()
+# 
+# pdf("heatmap_female_threshold0.3.pdf")
+# heatmap(mat3_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
+# dev.off()
 
-pdf("heatmap_female_threshold0.2.pdf")
-heatmap(mat2_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
-dev.off()
-
-pdf("heatmap_female_threshold0.3.pdf")
-heatmap(mat3_female, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete, margins=c(8,8))
-dev.off()
-
-library(vegan)
-mantel(mat1, mat3)
+# library(vegan)
+# mantel(mat1_male, mat3_male)
 
 
 ## just shorthand for now, removing lower 20% of correlations. Need to figure out a package to use for filtering now that PCIT is defunct.
@@ -1089,15 +1187,15 @@ sum_mat_female=apply(comembers_female_array, c(1,2), sum)
 
 
 map.data_male=data.frame(expand.grid(rownames(sum_mat_male), colnames(sum_mat_male)), expand.grid(sum_mat_male))
-names(map.data_male)=c("Rows", "Columns", "Values")
-
-# matrixplot_male=ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) + 
+# names(map.data_male)=c("Rows", "Columns", "Values")
+# 
+# matrixplot_male=ggplot(map.data_male, aes(x=Rows, y=Columns, fill=Values)) +
 #   geom_tile() +
 #   scale_fill_gradient(low="white", high="red") +
-#   theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank()) 
-
+#   theme(legend.position="none", axis.text.x=element_blank(), axis.title=element_blank())
+# 
 map.data_female=data.frame(expand.grid(rownames(sum_mat_female), colnames(sum_mat_female)), expand.grid(sum_mat_female))
-names(map.data_female)=c("Rows", "Columns", "Values")
+# names(map.data_female)=c("Rows", "Columns", "Values")
 
 # matrixplot_female=ggplot(map.data_female, aes(x=Rows, y=Columns, fill=Values)) + 
 #   geom_tile() +
@@ -1145,41 +1243,7 @@ hc1$labels[hc1$order]
 hc1$merge
 hc_df=data.frame(hc1$merge, hc1$height)
 hc_df
-write.csv(hc_df, "hierarchicalclustering_result.csv")
-# ### try using dynamic cut tree for each population instead of fastgreedy
-# t.rank=d_gen %>% group_by(population) %>% summarise(mean.t=mean(avg_t.chrom)) %>% mutate(rank=rank(-mean.t))
-# 
-# top_t=which(t.rank$rank<30)
-# 
-# treecut_males_membership=lapply(corr_list_males[top_t], function(x){
-#   cutreeDynamicTree(hclust(as.dist(x), method="complete"), minModuleSize = 2)
-# })
-# 
-# comembers_treecut_male=lapply(treecut_males_membership, function(x) outer(x, x, "==")+0)
-# 
-# comembers_treecut_male_array=abind(comembers_treecut_male, along=3)
-# 
-# sum_mat_treecut_male=apply(comembers_treecut_male_array, c(1,2), sum)
-# rownames(sum_mat_treecut_male)=colnames(sum_mat_treecut_male)=rownames(corr_list_males[[1]])
-# 
-# map.data_treecut_male=data.frame(expand.grid(rownames(sum_mat_treecut_male), colnames(sum_mat_treecut_male)), expand.grid(sum_mat_treecut_male))
-# names(map.data_treecut_male)=c("Rows", "Columns", "Values")
-# 
-# map.data_treecut_male$Values=map.data_treecut_male$Values/28
-# 
-# x_hue_treecut_male=map.data_treecut_male[-c(grep("hue",map.data_treecut_male$Rows), grep("hue", map.data_treecut_male$Columns)),]
-# 
-# mat_treecut_male=base::as.matrix(pivot_wider(map.data_treecut_male%>%filter(), names_from = Rows, values_from = Values)[,-1])
-# rownames(mat_treecut_male)=colnames(mat_treecut_male)
-# mat_treecut_male
-# 
-# dist_cor <- function(x) as.dist(1-x)
-# hclust_complete <- function(x) hclust(x, method = "complete")
-# 
-# colors=colorRampPalette(brewer.pal(n = 7, name = "YlOrRd"))(100)
-# heatmap(mat_treecut_male, scale="none", col=colors, distfun=dist_cor, hclustfun=hclust_complete)
-# 
-
+# write.csv(hc_df, "hierarchicalclustering_result.csv")
 
 
 # 
@@ -1286,14 +1350,14 @@ dat2=integ %>% select(wi_mod1, wi_mod2, btw_mod, ends_with("chrom"), sex, popula
 dat2=dat2 %>% left_join(., fst)
 dat2
 # ## avg ratio analyses
-# summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="M")))
+#summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="M")))
 # summary(lm(avgratio_1~mean.t.chrom, data=integ %>% filter(mean.t.chrom > 0.45, sex=="F")))
 # 
 # summary(lm(avgratio_1~mean.r.chrom, data=integ %>% filter(sex=="M")))
 
 ### Build Figure 4C,D
 modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.chrom, y=edge.weight, fill=patch, color=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
+  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
   geom_point(alpha=0.8, pch=21, color="black")+
   scale_color_viridis_d(direction=-1)+
   scale_fill_viridis_d(direction=-1)+
@@ -1308,7 +1372,7 @@ modplot1m=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="M"), aes(x=mean.t.ch
 modplot1m_nolegend=modplot1m + theme(legend.position="none")
 
 modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.chrom, y=edge.weight, color=patch, fill=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
+  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
   geom_point(alpha=0.8, pch=21, color="black")+
   scale_color_viridis_d(direction=-1)+
   scale_fill_viridis_d(direction=-1)+
@@ -1323,7 +1387,7 @@ modplot1f=ggplot(dat2 %>% filter(mean.t.chrom > 0.45, sex=="F"), aes(x=mean.t.ch
 
 
 modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, color=patch, fill=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
+  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
   geom_point(alpha=0.8, pch=21, color="black")+
   scale_color_viridis_d(direction=-1)+
   scale_fill_viridis_d(direction=-1)+
@@ -1336,7 +1400,7 @@ modplot2m=ggplot(dat2 %>% filter(sex=="M"), aes(x=mean.r.chrom, y=edge.weight, c
   guides(linetype=FALSE) 
 
 modplot2f=ggplot(dat2 %>% filter(sex=="F"), aes(x=mean.r.chrom, y=edge.weight, color=patch, fill=patch)) +
-  geom_smooth( method="lm", se=F, mapping=aes(linetype=wi_btw)) +
+  geom_smooth( method="lm", se=T, mapping=aes(linetype=wi_btw)) +
   geom_point(alpha=0.8, pch=21, color="black")+
   scale_color_viridis_d(direction=-1)+
   scale_fill_viridis_d(direction=-1)+
@@ -1543,8 +1607,8 @@ get_pop_cormat <- function(pop,which_sex,traits){
   d_cor<- d %>% 
     filter(population==pop & sex==which_sex) %>% 
     select(all_of(traits_col)) %>% 
-    cor(.,use="pairwise.complete",method = "pearson")
-  d_cor[diag(d_cor)]<-NA
+    cor(.,use="pairwise.complete",method = "spearman")
+  d_cor[diag(d_cor)]<-1
   
   #Filter algorithm
   # Here, simply ≥|0.3|
@@ -1588,7 +1652,7 @@ shps=c("triangle", "triangle", "triangle", "circle", "circle", "circle", "square
 pops=unique(d$population)
 ### Generate male networks figure
 #png("figs/Fig 2. Male_10_Networks_ordered.png",width=13,height=6,units="in",res=300)
-pdf("figs/NewFig 2. Male_Networks_modules_all_trial_pearson.pdf",width=10,height=14)
+pdf("figs/NewFig 2. Male_Networks_modules_all_trial_spearman.pdf",width=10,height=14)
 par(mfrow=c(7,4),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
 
 #Calculate quantiles for each population's color values to color nodes
