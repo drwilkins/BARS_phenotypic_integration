@@ -1416,6 +1416,9 @@ legend_plot=get_legend(modplot1m)
 
 plot_grid(modplot1m_nolegend, modplot2m, NULL, modplot1f, modplot2f, legend_plot, nrow=2, rel_widths=c(2,2,1))
 
+
+plot_grid(modplot1m_nolegend, modplot1f, legend_plot, nrow=1, rel_widths=c(2,2,1))
+ggsave("throat_mod_avgedgewgt.pdf", width=12, height=4)
 ##
 #interaction between within-module and between module
 ## revision--realizing that we should actually only look at within the focal patch vs. between patch
@@ -1675,12 +1678,6 @@ for (i in 1: length(pops)){
   # groupings<-list(throat=1:3,breast=4:6,belly=7:9,vent=10:12)
   Q(abs(mat),color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
-  
-  #Add bounding rectangle for Egypt
-  # if(cur_pop=="Egypt"){
-  #   box(which="figure",lwd=3)
-  #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
-  #}
 }
 
 
@@ -1704,13 +1701,19 @@ for (i in 1: length(pops)){
   Q(mat,color=nodecolor,border.color="gray20",labels=t.lab,shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
   
   mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
-  
-  # #Add bounding rectangle for Egypt
-  # if(cur_pop=="Egypt"){
-  #   box(which="figure",lwd=3)
-  #   #rect(xleft = -1.6,ybottom = -1.25,xright = 1.25,ytop = 1.6,border="cyan",lwd=3)
-  # }
 }
+
+pdf("figs/networks_for_scale.pdf",width=10,height=14)
+##use to generate edge scale
+sampleweights=c(0.3, 0.6, 0.9)
+par(mfrow=c(7,4),mar=rep(3,4),xpd=T,oma=rep(1,4),ps=18)
+for (i in 1: length(sampleweights)){
+  mat<-matrix(rep(sampleweights[i], 144), nrow=12)
+  g=graph_from_adjacency_matrix(abs(mat), diag=FALSE, weighted=T, mode="undirected")
+  Q(mat,color="gray",border.color="gray20",shape=shps,posCol="#181923",negCol=1,vsize=15,lab.col="#181923",lab.font=2,lab.scale=F,label.cex=.7,label.scale.equal=T,layout=net_layout,rescale=TRUE, maximum=1)
+  #mtext(cur_pop,3,line=.6,at=-1.4,adj=0,col="#181923",cex=.6,font=2)
+}
+dev.off()
 
 ### revision analyses:
 
