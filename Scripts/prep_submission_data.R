@@ -1,5 +1,7 @@
 ## clean up population names for submission data
 
+library(readxl)
+library(tidyverse)
 
 #import data for 28 populations for which we have at least 12 individuals of each sex
 #for Colorado, include only samples from 2008 (before many experiments)
@@ -46,3 +48,29 @@ gr_pair_new= gr_pair %>%
   dplyr::rename(pop2=Municipality)
 
 write.csv(gr_pair_new, "Data/pairwise_distance_correctpopulation.csv", row.names=F)
+
+## now for the bootstrapped data
+res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+summary(res)
+res$boot_summ=res$boot_summ %>% left_join(pop_lookup, by=join_by(population==population)) %>%
+  dplyr::select(-population, -Country, -hybrid_zone, -zone, -other_pop_name, -location.y) %>%
+  dplyr::rename(population=Municipality, location=location.x) %>%
+  relocate(population)
+
+res$boot_sex_diffs=res$boot_sex_diffs %>% left_join(pop_lookup, by=join_by(population==population)) %>%
+  dplyr::select(-population, -Country, -hybrid_zone, -zone, -other_pop_name, -location.y) %>%
+  dplyr::rename(population=Municipality, location=location.x) %>%
+  relocate(population)
+
+res$mean_traits=res$mean_traits %>% ungroup() %>% left_join(pop_lookup, by=join_by(population==population)) %>%
+  dplyr::select(-population, -Country, -hybrid_zone, -zone, -other_pop_name, -location.y) %>%
+  dplyr::rename(population=Municipality, location=location.x) %>%
+  relocate(population)
+
+res$mean_sex_diffs=res$mean_sex_diffs %>% ungroup() %>% left_join(pop_lookup, by=join_by(population==population)) %>%
+  dplyr::select(-population, -Country, -hybrid_zone, -zone, -other_pop_name, -location.y) %>%
+  dplyr::rename(population=Municipality, location=location.x) %>%
+  relocate(population)
+
+res
+save(res, file="/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps_correctpopulations.RDS")

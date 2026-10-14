@@ -2,7 +2,7 @@
 
 require(pacman)
 p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer, pheatmap, abind, infotheo, lme4)
-library(readxl)
+#library(readxl)
 #remotes::install_github("galacticpolymath/galacticEdTools")
 #require(galacticEdTools)
 
@@ -30,7 +30,7 @@ d=read.csv("Data/data_resubmission.csv")
 #results
 
 
-res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps.RDS")
+res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps_correctpopulations.RDS")
 
 #res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/manuscripts/BARS_PhenotypicIntegration/results_10k_bootstraps.RDS")
 
