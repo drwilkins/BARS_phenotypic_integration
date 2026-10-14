@@ -11,25 +11,7 @@ library(readxl)
 
 #import data for 28 populations for which we have at least 12 individuals of each sex
 #for Colorado, include only samples from 2008 (before many experiments)
-d=read.csv("Data/data_for_submission.csv")
-d$population<-as.factor(d$population)
-d$sex<-as.factor(d$sex)
-
-#make table of sample sizes
-pop_info_n=d %>% group_by(population, sex) %>% summarise(n=n()) %>% pivot_wider(id_cols=population, names_from=sex, values_from=n)
-
-pop_info_latlong= d %>% group_by(population) %>% summarise(lat=first(lat), long=first(long))
-
-pop_info_all=pop_info_latlong %>% left_join(pop_info_n)
-pop_info_all
-
-pop_lookup=read_excel("Data/location<->population_key.xlsx")
-
-d = d %>% left_join(pop_lookup, by=join_by(population==population)) %>% select()
-
-save.names
-#write.csv(pop_info_all, "data/population_info_for_supplement.population#write.csv(pop_info_all, "data/population_info_for_supplement.csv")
-
+d=read.csv("Data/data_resubmission.csv")
 
 # VERY Time consuming!
 # Uncomment if you want to run the full 10e4 bootstraps
@@ -58,7 +40,7 @@ res<-readRDS("/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypi
 
 
 # Run Subanalysis to account for genetics ---------------------------------
-fst<-read.csv("Data/pairwise_Fst/pairwise_Fst_table.csv")
+fst<-read.csv("Data/pairwise_Fst/pairwise_Fst_correctpopulation.csv")
 
 pops_w_fst<-fst$population
 #test if any mismatches with population names (next line should be character(0) )
@@ -80,7 +62,7 @@ d_gen_f<-d_gen %>% filter(sex=="F")
 #######################################################
 ####Run phylogenetic multilevel model without bootstrap
 library(brms)
-gr_pair=read.csv("Data/pairwise_distance_pop.csv")
+gr_pair=read.csv("Data/pairwise_distance_correctpopulation.csv")
 all.popnames=unique(c(gr_pair$pop1, gr_pair$pop2))
 dat_self=data.frame(pop1=all.popnames, pop2=all.popnames, mean.gen.dist=0)
 gr_dat=full_join(gr_pair, dat_self) %>% arrange(pop1, pop2)
