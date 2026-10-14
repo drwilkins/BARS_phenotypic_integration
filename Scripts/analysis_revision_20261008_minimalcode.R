@@ -2,6 +2,7 @@
 
 require(pacman)
 p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dplyr,rsample,pbapply,parallel,lme4,broom, cowplot, RColorBrewer, pheatmap, abind, infotheo, lme4)
+library(readxl)
 #remotes::install_github("galacticpolymath/galacticEdTools")
 #require(galacticEdTools)
 
@@ -10,7 +11,7 @@ p_load(tidyverse,qgraph,igraph,devtools,patchwork,ggrepel,glue,gtools,PHENIX,dpl
 
 #import data for 28 populations for which we have at least 12 individuals of each sex
 #for Colorado, include only samples from 2008 (before many experiments)
-d=read.csv("../Data/data_for_submission.csv")
+d=read.csv("Data/data_for_submission.csv")
 d$population<-as.factor(d$population)
 d$sex<-as.factor(d$sex)
 
@@ -22,7 +23,12 @@ pop_info_latlong= d %>% group_by(population) %>% summarise(lat=first(lat), long=
 pop_info_all=pop_info_latlong %>% left_join(pop_info_n)
 pop_info_all
 
-#write.csv(pop_info_all, "data/population_info_for_supplement.csv")
+pop_lookup=read_excel("Data/location<->population_key.xlsx")
+
+d = d %>% left_join(pop_lookup, by=join_by(population==population)) %>% select()
+
+save.names
+#write.csv(pop_info_all, "data/population_info_for_supplement.population#write.csv(pop_info_all, "data/population_info_for_supplement.csv")
 
 
 # VERY Time consuming!
