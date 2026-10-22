@@ -3,6 +3,8 @@
 library(readxl)
 library(tidyverse)
 
+pop_lookup=read_excel("Data/location<->population_key.xlsx")
+
 #import data for 28 populations for which we have at least 12 individuals of each sex
 #for Colorado, include only samples from 2008 (before many experiments)
 d=read.csv("Data/data_for_submission.csv")
@@ -17,7 +19,7 @@ pop_info_latlong= d %>% group_by(population) %>% summarise(lat=first(lat), long=
 pop_info_all=pop_info_latlong %>% left_join(pop_info_n)
 pop_info_all
 
-pop_lookup=read_excel("Data/location<->population_key.xlsx")
+
 
 d_new = d %>% left_join(pop_lookup, by=join_by(population==population)) %>% select(band, Municipality, year, sex, t.avg.bright, t.hue, t.chrom, r.avg.bright, r.hue, r.chrom, b.avg.bright, b.hue, b.chrom, v.avg.bright, v.hue, v.chrom, lat, long) %>%
   dplyr::rename(population=Municipality)
@@ -72,5 +74,6 @@ res$mean_sex_diffs=res$mean_sex_diffs %>% ungroup() %>% left_join(pop_lookup, by
   dplyr::rename(population=Municipality, location=location.x) %>%
   relocate(population)
 
-res
-save(res, file="/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps_correctpopulations.RDS")
+res_trim=list(boot_n=res$boot_n, boot_summ=res$boot_summ, mean_traits=res$mean_traits)
+res=res_trim
+saveRDS(res, file="/Users/dshizuka2/Dropbox/Dai_Research/Main Projects/BARS_phenotypicintegration/results_10k_bootstraps_publication.RDS")
